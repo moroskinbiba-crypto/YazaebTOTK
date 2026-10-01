@@ -1,0 +1,49 @@
+name: TOTK Explorer Build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: devkitpro/devkita64:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get libtesla
+        run: |
+          git clone --depth 1 https://github.com/WerWolv/libtesla.git libs/libtesla
+
+      - name: Get libdmntcht
+        run: |
+          git clone --depth 1 https://github.com/Atmosphere-NX/Atmosphere.git /tmp/Atmosphere
+          mkdir -p libs
+          cp /tmp/Atmosphere/libraries/libstratosphere/include/stratosphere/dmnt/dmntcht.hpp libs/
+          find /tmp/Atmosphere -name "libdmntcht.a" -exec cp {} libs/ \; || true
+
+      - name: Build
+        run: |
+          make -j2
+
+      - name: Package
+        run: |
+          mkdir -p artifact/sd/switch/.overlays
+          cp TOTK-Explorer-v3.ovl artifact/sd/switch/.overlays/
+
+          if [ -f data/points.csv ]; then
+            mkdir -p artifact/sd/switch/totk_explorer
+            cp data/points.csv artifact/sd/switch/totk_explorer/
+          fi
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOTK-Explorer-v3
+          path: artifact
