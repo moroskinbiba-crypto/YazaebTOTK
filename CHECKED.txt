@@ -1,0 +1,9 @@
+CHECKED PACKAGE: TOTK Explorer v3.0.3
+
+- Makefile follows official Tesla Template root/build split.
+- DATA is intentionally empty; points.csv is packaged separately.
+- No `make install` step for libtesla; it is header-only.
+- No `-ldmntcht`; the CI fetches libs/libdmntcht.a and links the file explicitly.
+- Only one workflow is included: .github/workflows/build.yml.
+- Build uses `make clean && make -j2`.
+- The expected output is TOTK-Explorer-v3.ovl.

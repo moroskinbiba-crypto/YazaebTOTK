@@ -1,0 +1,8 @@
+After GitHub Actions finishes, download the artifact named TOTK-Explorer-v3.
+Copy the `switch` folder from the artifact to the root of the Switch SD card.
+
+Expected files:
+  sd:/switch/.overlays/TOTK-Explorer-v3.ovl
+  sd:/switch/totk_explorer/points.csv
+
+Launch TOTK, open Tesla and select TOTK Explorer.
