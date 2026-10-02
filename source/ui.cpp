@@ -126,6 +126,8 @@ class MapGui final : public tsl::Gui {
     static constexpr std::size_t NEARBY = 8;
     std::array<tsl::elm::ListItem*, GRID> rows{};
     tsl::elm::ListItem* layerItem{};
+    tsl::elm::ListItem* buildIdItem{};
+    tsl::elm::ListItem* sourceItem{};
     tsl::elm::ListItem* posItem{};
     std::array<tsl::elm::ListItem*, NEARBY> nearbyItems{};
 
@@ -281,6 +283,8 @@ class InfoGui final : public tsl::Gui {
         heapItem->setValue(std::to_string(static_cast<unsigned long long>(state.heapSize)));
         pointsItem->setValue(std::to_string(state.points.size()));
         layerItem->setValue(state.playerValid ? ex::layerName(state.player) : "—");
+        buildIdItem->setValue(state.buildIdMatched ? "yes" : "no");
+        sourceItem->setValue(state.exactPlayer ? "1.4.3 Player actor" : (state.playerValid ? "heuristic profile" : "none"));
     }
 
 public:
@@ -292,6 +296,8 @@ public:
         list->addItem(new tsl::elm::ListItem("Title ID", ex::TITLE_TEXT));
         list->addItem(new tsl::elm::ListItem("Version", ex::GAME_VERSION));
         list->addItem(new tsl::elm::ListItem("Build ID", ex::BID_TEXT));
+        list->addItem(new tsl::elm::ListItem("Build ID match"));
+        list->addItem(new tsl::elm::ListItem("Coordinate source"));
 
         list->addItem(new tsl::elm::ListItem("Runtime"));
         dmntItem = new tsl::elm::ListItem("dmnt:cht");
@@ -299,6 +305,8 @@ public:
         heapItem = new tsl::elm::ListItem("Heap bytes");
         pointsItem = new tsl::elm::ListItem("Map points");
         layerItem = new tsl::elm::ListItem("World layer");
+        buildIdItem = new tsl::elm::ListItem("Build ID match");
+        sourceItem = new tsl::elm::ListItem("Coordinate source");
         list->addItem(dmntItem);
         list->addItem(pidItem);
         list->addItem(heapItem);
