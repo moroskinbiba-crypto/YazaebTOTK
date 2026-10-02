@@ -7,6 +7,10 @@ on:
       - master
   workflow_dispatch:
 
+concurrency:
+  group: totk-explorer-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
