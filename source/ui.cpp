@@ -275,6 +275,8 @@ class InfoGui final : public tsl::Gui {
     tsl::elm::ListItem* heapItem{};
     tsl::elm::ListItem* pointsItem{};
     tsl::elm::ListItem* layerItem{};
+    tsl::elm::ListItem* buildIdItem{};
+    tsl::elm::ListItem* sourceItem{};
 
     void refresh() {
         const auto& state = ex::state();
@@ -296,8 +298,6 @@ public:
         list->addItem(new tsl::elm::ListItem("Title ID", ex::TITLE_TEXT));
         list->addItem(new tsl::elm::ListItem("Version", ex::GAME_VERSION));
         list->addItem(new tsl::elm::ListItem("Build ID", ex::BID_TEXT));
-        list->addItem(new tsl::elm::ListItem("Build ID match"));
-        list->addItem(new tsl::elm::ListItem("Coordinate source"));
 
         list->addItem(new tsl::elm::ListItem("Runtime"));
         dmntItem = new tsl::elm::ListItem("dmnt:cht");
@@ -312,6 +312,8 @@ public:
         list->addItem(heapItem);
         list->addItem(pointsItem);
         list->addItem(layerItem);
+        list->addItem(buildIdItem);
+        list->addItem(sourceItem);
 
         list->addItem(new tsl::elm::ListItem("Safety"));
         list->addItem(new tsl::elm::ListItem("Progress flags", "Not enabled"));
