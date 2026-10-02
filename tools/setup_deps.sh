@@ -4,31 +4,33 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# libtesla is tagged; this keeps the overlay toolchain deterministic.
-LIBTESLA_TAG="v1.3.3"
+LIBTESLA_REPO="https://github.com/masagrator/Status-Monitor-Deux.git"
+LIBTESLA_COMMIT="23a97111808d74993ece25b8bab79402fa2d7880"
+DMNT_REPO="https://github.com/Insektaure/Shiny-Stash-Live-Map.git"
+DMNT_COMMIT="548896d0cc3b5fd531bd970f0708ecda13338492"
 
 mkdir -p "$ROOT/libs" "$ROOT/include/switch"
-
-if [[ ! -f "$ROOT/libs/libtesla/include/tesla.hpp" ]]; then
-  rm -rf "$ROOT/libs/libtesla"
-  git clone --depth 1 --branch "$LIBTESLA_TAG" https://github.com/WerWolv/libtesla.git "$ROOT/libs/libtesla"
-fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# dmnt:cht is currently consumed as a small prebuilt static library + header.
-# The CI verifies both artifacts before compilation. We print the source commit
-# so CI logs retain an audit trail of the fetched dependency.
-git clone --depth 1 https://github.com/Insektaure/Shiny-Stash-Live-Map.git "$TMP/dmnt"
+rm -rf "$ROOT/libs/libtesla"
+git clone --filter=blob:none --no-checkout "$LIBTESLA_REPO" "$TMP/tesla"
+git -C "$TMP/tesla" checkout --detach "$LIBTESLA_COMMIT"
+cp -a "$TMP/tesla/lib/libtesla" "$ROOT/libs/libtesla"
 
-echo "dmnt source commit: $(git -C "$TMP/dmnt" rev-parse HEAD)"
-
+rm -f "$ROOT/libs/libdmntcht.a" "$ROOT/include/switch/dmntcht.h"
+git clone --filter=blob:none --no-checkout "$DMNT_REPO" "$TMP/dmnt"
+git -C "$TMP/dmnt" checkout --detach "$DMNT_COMMIT"
 install -m 0644 "$TMP/dmnt/lib/libdmntcht.a" "$ROOT/libs/libdmntcht.a"
 install -m 0644 "$TMP/dmnt/include/switch/dmntcht.h" "$ROOT/include/switch/dmntcht.h"
 
 test -s "$ROOT/libs/libdmntcht.a"
 test -s "$ROOT/include/switch/dmntcht.h"
 test -s "$ROOT/libs/libtesla/include/tesla.hpp"
+test -s "$ROOT/libs/libtesla/include/ini_funcs.hpp"
+test -s "$ROOT/libs/libtesla/include/stb_truetype.h"
 
+echo "libtesla commit: $LIBTESLA_COMMIT"
+echo "dmnt:cht source commit: $DMNT_COMMIT"
 echo "Dependencies ready."
