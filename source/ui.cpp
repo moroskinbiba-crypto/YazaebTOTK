@@ -74,7 +74,7 @@ public:
         list->addItem(coordsItem);
         list->addItem(profileItem);
 
-        auto* start = new tsl::elm::ListItem("Start / Restart Scan");
+        auto* start = new tsl::elm::ListItem("Resolve Coordinates");
         start->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
                 ex::startAutoScan();
@@ -85,9 +85,9 @@ public:
         list->addItem(start);
 
         list->addItem(new tsl::elm::ListItem("Calibration"));
-        list->addItem(new tsl::elm::ListItem("X", "After walking, press X"));
-        list->addItem(new tsl::elm::ListItem("X again", "After jumping, press X"));
-        list->addItem(new tsl::elm::ListItem("Y", "Reset scan"));
+        list->addItem(new tsl::elm::ListItem("Fallback scan", "Used only if exact resolver fails"));
+        list->addItem(new tsl::elm::ListItem("Move", "If fallback scan is active"));
+        list->addItem(new tsl::elm::ListItem("Jump", "If fallback scan is active"));
 
         frame->setContent(list);
         refresh();
