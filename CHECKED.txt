@@ -1,9 +1,21 @@
-CHECKED PACKAGE: TOTK Explorer v3.0.3
+TOTK Explorer v3.1.0 reviewed build
 
-- Makefile follows official Tesla Template root/build split.
-- DATA is intentionally empty; points.csv is packaged separately.
-- No `make install` step for libtesla; it is header-only.
-- No `-ldmntcht`; the CI fetches libs/libdmntcht.a and links the file explicitly.
-- Only one workflow is included: .github/workflows/build.yml.
-- Build uses `make clean && make -j2`.
-- The expected output is TOTK-Explorer-v3.ovl.
+Static review completed against the provided code review.
+
+Fixed:
+- GitHub Actions checks data/points.csv.
+- GitHub Actions uploads hidden .overlays contents.
+- Workflow supports main/master and workflow_dispatch.
+- Correct .github/workflows/build.yml path is used.
+- libtesla pinned to v1.3.3.
+- Candidate memory capped at 4096 and reservoir sampled.
+- Duplicate moving vector removed.
+- Live screens update ListItem values in update().
+- Version numbers unified to 3.1.0.
+- SD install path documented consistently.
+- Final .ovl is explicitly checked before artifact upload.
+
+Not verified in this environment:
+- Native devkitA64 compilation/runtime on a physical Switch.
+- Correctness of the TOTK coordinate candidate chosen by heuristic memory scan.
+- Completeness/correctness of the external TOTK point database.

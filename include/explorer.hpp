@@ -11,7 +11,7 @@ inline constexpr u64 TITLE_ID = 0x0100F2C0115B6000ULL;
 inline constexpr const char* TITLE_TEXT = "0100F2C0115B6000";
 inline constexpr const char* BID_TEXT = "277178B7DBA1B6D4";
 inline constexpr const char* GAME_VERSION = "1.4.3";
-inline constexpr const char* VERSION = "3.0.1";
+inline constexpr const char* VERSION = "3.1.0";
 
 struct Vec3 { float x{}, y{}, z{}; };
 struct Point { std::string type, name; float x{}, y{}, z{}; };
@@ -30,14 +30,14 @@ struct State {
     u64 cursor{};
     u64 scanned{};
     std::size_t candidates{};
+    std::size_t candidatesSeen{};
     Vec3 player{};
     bool playerValid{};
     bool dmntReady{};
     bool attachedByUs{};
     Profile profile{};
-    std::vector<Candidate> snapshot;
-    std::vector<Candidate> moving;
-    std::vector<Point> points;
+    std::vector<Candidate> candidatesList{};
+    std::vector<Point> points{};
 };
 
 State& state();
@@ -53,7 +53,6 @@ void loadPoints();
 void saveProfile();
 void loadProfile();
 const char* stageText(ScanStage stage);
-std::string regionName(const Vec3& p);
 std::string layerName(const Vec3& p);
 std::vector<Point> nearby(float radius, std::size_t maxCount);
 

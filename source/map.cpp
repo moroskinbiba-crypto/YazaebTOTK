@@ -3,7 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <cstring>
+#include <string>
+#include <vector>
 
 namespace ex {
 
@@ -43,7 +44,6 @@ std::vector<Point> nearby(float radius, std::size_t maxCount) {
 
     std::vector<DistancePoint> distances;
     distances.reserve(state().points.size());
-
     const float radiusSquared = radius * radius;
 
     for (const auto& point : state().points) {

@@ -1,11 +1,10 @@
 #include <tesla.hpp>
-#include <memory>
-#include "explorer.hpp"
-
 #include <array>
-#include <cmath>
 #include <cstdio>
+#include <memory>
 #include <string>
+
+#include "explorer.hpp"
 
 namespace {
 
@@ -26,26 +25,53 @@ std::string distanceText(const ex::Vec3& player, const ex::Point& point) {
     return buffer;
 }
 
-
 class ScanGui final : public tsl::Gui {
+    tsl::elm::ListItem* stageItem{};
+    tsl::elm::ListItem* statusItem{};
+    tsl::elm::ListItem* progressItem{};
+    tsl::elm::ListItem* candidatesItem{};
+    tsl::elm::ListItem* coordsItem{};
+    tsl::elm::ListItem* profileItem{};
+
+    void refresh() {
+        const auto& state = ex::state();
+        stageItem->setValue(ex::stageText(state.stage));
+        statusItem->setValue(state.message);
+
+        if (state.heapSize > 0) {
+            const double pct = 100.0 * static_cast<double>(state.scanned) / static_cast<double>(state.heapSize);
+            char progress[48]{};
+            std::snprintf(progress, sizeof(progress), "%.1f%%", pct);
+            progressItem->setValue(progress);
+        } else {
+            progressItem->setValue("0.0%");
+        }
+
+        candidatesItem->setValue(std::to_string(state.candidates));
+        coordsItem->setValue(state.playerValid
+            ? f2(state.player.x) + " / " + f2(state.player.y) + " / " + f2(state.player.z)
+            : "—");
+        profileItem->setValue(state.profile.valid ? "yes" : "no");
+    }
+
 public:
     tsl::elm::Element* createUI() override {
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Auto Discovery");
         auto* list = new tsl::elm::List();
-        const auto& state = ex::state();
 
         list->addItem(new tsl::elm::CategoryHeader("Automatic coordinate detection"));
-        list->addItem(new tsl::elm::ListItem("Stage", ex::stageText(state.stage)));
-        list->addItem(new tsl::elm::ListItem("Status", state.message));
-
-        if (state.heapSize > 0) {
-            char progress[32]{};
-            const double pct = 100.0 * static_cast<double>(state.scanned) / static_cast<double>(state.heapSize);
-            std::snprintf(progress, sizeof(progress), "%.1f%%", pct);
-            list->addItem(new tsl::elm::ListItem("Scan progress", progress));
-        }
-
-        list->addItem(new tsl::elm::ListItem("Candidates", std::to_string(state.candidates)));
+        stageItem = new tsl::elm::ListItem("Stage");
+        statusItem = new tsl::elm::ListItem("Status");
+        progressItem = new tsl::elm::ListItem("Scan progress");
+        candidatesItem = new tsl::elm::ListItem("Candidates");
+        coordsItem = new tsl::elm::ListItem("X / Y / Z");
+        profileItem = new tsl::elm::ListItem("Saved profile");
+        list->addItem(stageItem);
+        list->addItem(statusItem);
+        list->addItem(progressItem);
+        list->addItem(candidatesItem);
+        list->addItem(coordsItem);
+        list->addItem(profileItem);
 
         auto* start = new tsl::elm::ListItem("Start / Restart Scan");
         start->setClickListener([](u64 keys) {
@@ -58,20 +84,18 @@ public:
         list->addItem(start);
 
         list->addItem(new tsl::elm::CategoryHeader("Calibration"));
-        list->addItem(new tsl::elm::ListItem("X", "After walking, capture movement"));
-        list->addItem(new tsl::elm::ListItem("X again", "After jumping, capture height"));
+        list->addItem(new tsl::elm::ListItem("X", "After walking, press X"));
+        list->addItem(new tsl::elm::ListItem("X again", "After jumping, press X"));
         list->addItem(new tsl::elm::ListItem("Y", "Reset scan"));
-        list->addItem(new tsl::elm::ListItem("Saved profile", state.profile.valid ? "yes" : "no"));
-
-        if (state.playerValid)
-            list->addItem(new tsl::elm::ListItem("X/Y/Z", f2(state.player.x) + " / " + f2(state.player.y) + " / " + f2(state.player.z)));
 
         frame->setContent(list);
+        refresh();
         return frame;
     }
 
     void update() override {
         ex::tick();
+        refresh();
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
@@ -92,73 +116,99 @@ public:
             tsl::goBack();
             return true;
         }
-
         return false;
     }
 };
 
 class MapGui final : public tsl::Gui {
+    static constexpr std::size_t GRID = 9;
+    static constexpr std::size_t NEARBY = 8;
+    std::array<tsl::elm::ListItem*, GRID> rows{};
+    tsl::elm::ListItem* layerItem{};
+    tsl::elm::ListItem* posItem{};
+    std::array<tsl::elm::ListItem*, NEARBY> nearbyItems{};
+
+    static char marker(const ex::Point& point) {
+        if (point.type == "Shrine") return 'S';
+        if (point.type == "Korok") return 'K';
+        if (point.type == "Lightroot") return 'L';
+        if (point.type == "Tower") return 'T';
+        if (point.type == "Cave") return 'C';
+        if (point.type == "Chasm") return 'H';
+        return '*';
+    }
+
+    static std::string mapRow(const ex::Vec3& player, const std::vector<ex::Point>& points, int row) {
+        std::string cells(GRID, '.');
+        cells[GRID / 2] = '@';
+        constexpr float CELL_SIZE = 250.0f;
+
+        for (const auto& point : points) {
+            const float dx = point.x - player.x;
+            const float dz = point.z - player.z;
+            const int gx = static_cast<int>(std::lround(dx / CELL_SIZE)) + static_cast<int>(GRID / 2);
+            const int gy = static_cast<int>(std::lround(dz / CELL_SIZE)) + static_cast<int>(GRID / 2);
+            if (gx < 0 || gx >= static_cast<int>(GRID) || gy < 0 || gy >= static_cast<int>(GRID) || gy != row)
+                continue;
+            cells[static_cast<std::size_t>(gx)] = marker(point);
+        }
+        return cells;
+    }
+
+    void refresh() {
+        const auto& state = ex::state();
+        layerItem->setValue(state.playerValid ? ex::layerName(state.player) : "Not discovered");
+        posItem->setValue(state.playerValid
+            ? f2(state.player.x) + ", " + f2(state.player.y) + ", " + f2(state.player.z)
+            : "—");
+
+        if (state.playerValid) {
+            for (std::size_t i = 0; i < GRID; ++i)
+                rows[i]->setValue(mapRow(state.player, state.points, static_cast<int>(i)));
+
+            const auto nearbyPoints = ex::nearby(1000.0f, NEARBY);
+            for (std::size_t i = 0; i < NEARBY; ++i) {
+                if (i < nearbyPoints.size())
+                    nearbyItems[i]->setValue(nearbyPoints[i].type + " · " + nearbyPoints[i].name + "  " + distanceText(state.player, nearbyPoints[i]));
+                else
+                    nearbyItems[i]->setValue("");
+            }
+        } else {
+            for (auto* row : rows) row->setValue("—");
+            for (auto* item : nearbyItems) item->setValue("");
+        }
+    }
+
 public:
     tsl::elm::Element* createUI() override {
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Dynamic Map");
         auto* list = new tsl::elm::List();
-        const auto& state = ex::state();
 
-        list->addItem(new tsl::elm::CategoryHeader("Live local map"));
+        layerItem = new tsl::elm::ListItem("Layer");
+        posItem = new tsl::elm::ListItem("Position");
+        list->addItem(layerItem);
+        list->addItem(posItem);
+        list->addItem(new tsl::elm::CategoryHeader("Local map — @ Link  S Shrine  K Korok  L Lightroot  T Tower  C Cave  H Chasm"));
 
-        if (!state.playerValid) {
-            list->addItem(new tsl::elm::ListItem("Player", "Run Auto Discovery first"));
-            frame->setContent(list);
-            return frame;
+        for (std::size_t i = 0; i < GRID; ++i) {
+            rows[i] = new tsl::elm::ListItem("Map " + std::to_string(i + 1));
+            list->addItem(rows[i]);
         }
-
-        list->addItem(new tsl::elm::ListItem("Layer", ex::layerName(state.player)));
-        list->addItem(new tsl::elm::ListItem("Position", f2(state.player.x) + ", " + f2(state.player.y) + ", " + f2(state.player.z)));
-
-        constexpr int GRID = 9;
-        constexpr float CELL_SIZE = 250.0f;
-        std::array<std::string, GRID> rows{};
-        for (auto& row : rows)
-            row = std::string(GRID, '.');
-        rows[GRID / 2][GRID / 2] = '@';
-
-        for (const auto& point : state.points) {
-            const float dx = point.x - state.player.x;
-            const float dz = point.z - state.player.z;
-            const int gx = static_cast<int>(std::lround(dx / CELL_SIZE)) + GRID / 2;
-            const int gy = static_cast<int>(std::lround(dz / CELL_SIZE)) + GRID / 2;
-            if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID)
-                continue;
-
-            char marker = '*';
-            if (point.type == "Shrine") marker = 'S';
-            else if (point.type == "Korok") marker = 'K';
-            else if (point.type == "Lightroot") marker = 'L';
-            else if (point.type == "Tower") marker = 'T';
-            else if (point.type == "Cave") marker = 'C';
-            else if (point.type == "Chasm") marker = 'H';
-
-            rows[gy][gx] = marker;
-        }
-
-        list->addItem(new tsl::elm::CategoryHeader("N ↑  @ Link  S Shrine  K Korok  L Lightroot  T Tower  C Cave  H Chasm"));
-        for (auto it = rows.rbegin(); it != rows.rend(); ++it)
-            list->addItem(new tsl::elm::ListItem(*it));
 
         list->addItem(new tsl::elm::CategoryHeader("Nearby"));
-        const auto points = ex::nearby(1000.0f, 8);
-        for (const auto& point : points)
-            list->addItem(new tsl::elm::ListItem(point.type + " · " + point.name, distanceText(state.player, point)));
-
-        if (points.empty())
-            list->addItem(new tsl::elm::ListItem("No nearby points", "Add entries to points.csv"));
+        for (std::size_t i = 0; i < NEARBY; ++i) {
+            nearbyItems[i] = new tsl::elm::ListItem("Point " + std::to_string(i + 1));
+            list->addItem(nearbyItems[i]);
+        }
 
         frame->setContent(list);
+        refresh();
         return frame;
     }
 
     void update() override {
         ex::tick();
+        refresh();
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
@@ -171,31 +221,40 @@ public:
 };
 
 class NearbyGui final : public tsl::Gui {
+    static constexpr std::size_t MAX = 20;
+    std::array<tsl::elm::ListItem*, MAX> items{};
+
+    void refresh() {
+        const auto& state = ex::state();
+        const auto points = ex::nearby(2000.0f, MAX);
+        for (std::size_t i = 0; i < MAX; ++i) {
+            if (!state.playerValid) {
+                items[i]->setValue(i == 0 ? "Run Auto Discovery first" : "");
+            } else if (i < points.size()) {
+                items[i]->setValue(points[i].type + " · " + points[i].name + "  " + distanceText(state.player, points[i]));
+            } else {
+                items[i]->setValue("");
+            }
+        }
+    }
+
 public:
     tsl::elm::Element* createUI() override {
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Nearby");
         auto* list = new tsl::elm::List();
-        const auto& state = ex::state();
-
-        if (!state.playerValid) {
-            list->addItem(new tsl::elm::ListItem("Status", "Run Auto Discovery first"));
-            frame->setContent(list);
-            return frame;
+        list->addItem(new tsl::elm::CategoryHeader("Nearest database points"));
+        for (std::size_t i = 0; i < MAX; ++i) {
+            items[i] = new tsl::elm::ListItem("Point " + std::to_string(i + 1));
+            list->addItem(items[i]);
         }
-
-        const auto points = ex::nearby(2000.0f, 20);
-        for (const auto& point : points)
-            list->addItem(new tsl::elm::ListItem(point.type + " · " + point.name, distanceText(state.player, point)));
-
-        if (points.empty())
-            list->addItem(new tsl::elm::ListItem("No nearby points", "Add entries to points.csv"));
-
         frame->setContent(list);
+        refresh();
         return frame;
     }
 
     void update() override {
         ex::tick();
+        refresh();
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
@@ -208,11 +267,25 @@ public:
 };
 
 class InfoGui final : public tsl::Gui {
+    tsl::elm::ListItem* dmntItem{};
+    tsl::elm::ListItem* pidItem{};
+    tsl::elm::ListItem* heapItem{};
+    tsl::elm::ListItem* pointsItem{};
+    tsl::elm::ListItem* layerItem{};
+
+    void refresh() {
+        const auto& state = ex::state();
+        dmntItem->setValue(state.dmntReady ? "yes" : "no");
+        pidItem->setValue(std::to_string(static_cast<unsigned long long>(state.processId)));
+        heapItem->setValue(std::to_string(static_cast<unsigned long long>(state.heapSize)));
+        pointsItem->setValue(std::to_string(state.points.size()));
+        layerItem->setValue(state.playerValid ? ex::layerName(state.player) : "—");
+    }
+
 public:
     tsl::elm::Element* createUI() override {
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Diagnostics");
         auto* list = new tsl::elm::List();
-        const auto& state = ex::state();
 
         list->addItem(new tsl::elm::CategoryHeader("Target"));
         list->addItem(new tsl::elm::ListItem("Title ID", ex::TITLE_TEXT));
@@ -220,22 +293,29 @@ public:
         list->addItem(new tsl::elm::ListItem("Build ID", ex::BID_TEXT));
 
         list->addItem(new tsl::elm::CategoryHeader("Runtime"));
-        list->addItem(new tsl::elm::ListItem("dmnt:cht", state.dmntReady ? "yes" : "no"));
-        list->addItem(new tsl::elm::ListItem("PID", std::to_string(state.processId)));
-        list->addItem(new tsl::elm::ListItem("Heap", std::to_string(static_cast<unsigned long long>(state.heapSize))));
-        list->addItem(new tsl::elm::ListItem("Map points", std::to_string(state.points.size())));
+        dmntItem = new tsl::elm::ListItem("dmnt:cht");
+        pidItem = new tsl::elm::ListItem("PID");
+        heapItem = new tsl::elm::ListItem("Heap bytes");
+        pointsItem = new tsl::elm::ListItem("Map points");
+        layerItem = new tsl::elm::ListItem("World layer");
+        list->addItem(dmntItem);
+        list->addItem(pidItem);
+        list->addItem(heapItem);
+        list->addItem(pointsItem);
+        list->addItem(layerItem);
 
-        if (state.playerValid) {
-            list->addItem(new tsl::elm::ListItem("Region", ex::regionName(state.player)));
-            list->addItem(new tsl::elm::ListItem("Layer", ex::layerName(state.player)));
-        }
-
-        list->addItem(new tsl::elm::CategoryHeader("Save / progress"));
+        list->addItem(new tsl::elm::CategoryHeader("Safety"));
         list->addItem(new tsl::elm::ListItem("Progress flags", "Not enabled"));
         list->addItem(new tsl::elm::ListItem("Memory writes", "Disabled"));
 
         frame->setContent(list);
+        refresh();
         return frame;
+    }
+
+    void update() override {
+        ex::tick();
+        refresh();
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
@@ -250,16 +330,20 @@ public:
 } // namespace
 
 class MainGui final : public tsl::Gui {
+    tsl::elm::ListItem* memoryItem{};
+    tsl::elm::ListItem* coordsItem{};
+
 public:
     tsl::elm::Element* createUI() override {
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", ex::VERSION);
         auto* list = new tsl::elm::List();
-        const auto& state = ex::state();
 
         list->addItem(new tsl::elm::CategoryHeader("Tears of the Kingdom 1.4.3"));
         list->addItem(new tsl::elm::ListItem("BID", ex::BID_TEXT));
-        list->addItem(new tsl::elm::ListItem("Memory", state.dmntReady ? "dmnt:cht connected" : "not connected"));
-        list->addItem(new tsl::elm::ListItem("Coordinates", state.playerValid ? "Live" : "Not discovered"));
+        memoryItem = new tsl::elm::ListItem("Memory");
+        coordsItem = new tsl::elm::ListItem("Coordinates");
+        list->addItem(memoryItem);
+        list->addItem(coordsItem);
 
         auto* scan = new tsl::elm::ListItem("Auto Discovery");
         scan->setClickListener([](u64 keys) {
@@ -307,6 +391,11 @@ public:
 
     void update() override {
         ex::tick();
+        const auto& state = ex::state();
+        memoryItem->setValue(state.dmntReady ? "dmnt:cht connected" : "not connected");
+        coordsItem->setValue(state.playerValid
+            ? f2(state.player.x) + " / " + f2(state.player.y) + " / " + f2(state.player.z)
+            : "Not discovered");
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
@@ -317,7 +406,6 @@ public:
         return false;
     }
 };
-
 
 std::unique_ptr<tsl::Gui> createMainGui() {
     return std::make_unique<MainGui>();

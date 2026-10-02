@@ -1,25 +1,23 @@
 #---------------------------------------------------------------------------------
 # TOTK Explorer - Tesla Overlay
-# Build system intentionally follows the official Tesla Template structure.
 # Target: The Legend of Zelda: Tears of the Kingdom 1.4.3
 #---------------------------------------------------------------------------------
-
 .SUFFIXES:
 
 ifeq ($(strip $(DEVKITPRO)),)
 $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
 endif
 
-TOPDIR ?= $(CURDIR)
+TOPDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+TOPDIR := $(patsubst %/,%,$(TOPDIR))
+
 include $(DEVKITPRO)/libnx/switch_rules
 
 APP_TITLE := TOTK Explorer
-APP_VERSION := 3.0.3
+APP_VERSION := 3.1.0
 TARGET := TOTK-Explorer-v3
 BUILD := build
 SOURCES := source
-# Keep DATA empty: points.csv is packaged by CI and is not compiled as binary data.
-DATA :=
 INCLUDES := include libs/libtesla/include
 NO_ICON := 1
 
@@ -29,27 +27,19 @@ CFLAGS += $(INCLUDE) -D__SWITCH__
 CXXFLAGS := $(CFLAGS) -fno-exceptions -std=c++20
 ASFLAGS := -g $(ARCH)
 LDFLAGS = -specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-
-# libdmntcht is supplied by tools/setup_deps.sh.
-# libtesla is header-only and is included through INCLUDES above.
 LIBS := $(TOPDIR)/libs/libdmntcht.a -lnx
-LIBDIRS := $(PORTLIBS) $(LIBNX)
+LIBDIRS := $(TOPDIR)/libs $(PORTLIBS) $(LIBNX)
 
-#---------------------------------------------------------------------------------
-# This section is copied in structure from WerWolv/Tesla-Template.  In particular,
-# the root make enters build/ exactly once; the nested make resolves to the
-# alternate branch because CURDIR becomes "build".
-#---------------------------------------------------------------------------------
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 
-export OUTPUT := $(CURDIR)/$(TARGET)
-export TOPDIR := $(CURDIR)
-export VPATH := $(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
-export DEPSDIR := $(CURDIR)/$(BUILD)
+export OUTPUT := $(TOPDIR)/$(TARGET)
+export TOPDIR := $(TOPDIR)
+export VPATH := $(foreach dir,$(SOURCES),$(TOPDIR)/$(dir))
+export DEPSDIR := $(TOPDIR)/$(BUILD)
 
-CFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CPPFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
-SFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
+CFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(TOPDIR)/$(dir)/*.c)))
+CPPFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(TOPDIR)/$(dir)/*.cpp)))
+SFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(TOPDIR)/$(dir)/*.s)))
 
 ifeq ($(strip $(CPPFILES)),)
 export LD := $(CC)
@@ -61,63 +51,31 @@ export OFILES_BIN :=
 export OFILES_SRC := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
 export OFILES := $(OFILES_SRC)
 export HFILES_BIN :=
-export INCLUDE := $(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+export INCLUDE := $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \
                   $(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-                  -I$(CURDIR)/$(BUILD)
+                  -I$(TOPDIR)/$(BUILD)
 export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
-ifeq ($(strip $(CONFIG_JSON)),)
-jsons := $(wildcard *.json)
-ifneq (,$(findstring $(TARGET).json,$(jsons)))
-export APP_JSON := $(TOPDIR)/$(TARGET).json
-else
-ifneq (,$(findstring config.json,$(jsons)))
-export APP_JSON := $(TOPDIR)/config.json
-endif
-endif
-else
-export APP_JSON := $(TOPDIR)/$(CONFIG_JSON)
-endif
-
-ifeq ($(strip $(ICON)),)
-icons := $(wildcard *.jpg)
-ifneq (,$(findstring $(TARGET).jpg,$(icons)))
-export APP_ICON := $(TOPDIR)/$(TARGET).jpg
-else
-ifneq (,$(findstring icon.jpg,$(icons)))
-export APP_ICON := $(TOPDIR)/icon.jpg
-endif
-endif
-else
-export APP_ICON := $(TOPDIR)/$(ICON)
-endif
-
-ifeq ($(strip $(NO_ICON)),)
-export NROFLAGS += --icon=$(APP_ICON)
-endif
-
-ifeq ($(strip $(NO_NACP)),)
-export NROFLAGS += --nacp=$(CURDIR)/$(TARGET).nacp
-endif
-
-ifneq ($(APP_TITLEID),)
-export NACPFLAGS += --titleid=$(APP_TITLEID)
-endif
-
-ifneq ($(ROMFS),)
-export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
-endif
-
-.PHONY: $(BUILD) clean all setup
+.PHONY: all clean setup verify-layout
 
 all: $(BUILD)
 
 $(BUILD):
-	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	@mkdir -p $@
+	@$(MAKE) --no-print-directory -C $@ -f $(TOPDIR)/Makefile all
 
 setup:
-	@bash $(CURDIR)/tools/setup_deps.sh
+	@bash $(TOPDIR)/tools/setup_deps.sh
+
+verify-layout:
+	@test -f $(TOPDIR)/data/points.csv
+	@test -f $(TOPDIR)/include/explorer.hpp
+	@test -f $(TOPDIR)/source/main.cpp
+	@test -f $(TOPDIR)/source/memory.cpp
+	@test -f $(TOPDIR)/source/map.cpp
+	@test -f $(TOPDIR)/source/ui.cpp
+	@test -f $(TOPDIR)/libs/libdmntcht.a
+	@test -f $(TOPDIR)/libs/libtesla/include/tesla.hpp
 
 clean:
 	@rm -fr $(BUILD) $(TARGET).ovl $(TARGET).nro $(TARGET).nacp $(TARGET).elf $(TARGET).map

@@ -1,8 +1,16 @@
-After GitHub Actions finishes, download the artifact named TOTK-Explorer-v3.
-Copy the `switch` folder from the artifact to the root of the Switch SD card.
+TOTK Explorer v3.1.0
 
-Expected files:
-  sd:/switch/.overlays/TOTK-Explorer-v3.ovl
-  sd:/switch/totk_explorer/points.csv
+After downloading the GitHub Actions artifact, extract the `sd` directory to the root of the Switch microSD card.
 
-Launch TOTK, open Tesla and select TOTK Explorer.
+Expected layout:
+
+sd:/switch/.overlays/TOTK-Explorer-v3.ovl
+sd:/switch/totk_explorer/points.csv
+
+Then:
+1. Launch TOTK 1.4.3 (BID 277178B7DBA1B6D4).
+2. Open Tesla.
+3. Select TOTK Explorer.
+4. Use Auto Discovery if no saved coordinate profile is present.
+
+The overlay is read-only: it does not write to game memory.

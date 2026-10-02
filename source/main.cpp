@@ -4,6 +4,9 @@
 
 #include <memory>
 
+class MainGui;
+std::unique_ptr<tsl::Gui> createMainGui();
+
 class TotkExplorerOverlay final : public tsl::Overlay {
 public:
     void initServices() override {
@@ -15,18 +18,10 @@ public:
         ex::shutdownMemory();
     }
 
-    std::unique_ptr<tsl::Gui> loadInitialGui() override;
+    std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return createMainGui();
+    }
 };
-
-// MainGui is implemented in ui.cpp and is intentionally declared here so that
-// the overlay entrypoint remains in one translation unit.
-class MainGui;
-
-std::unique_ptr<tsl::Gui> TotkExplorerOverlay::loadInitialGui() {
-    // The GUI factory is provided by ui.cpp through this function.
-    extern std::unique_ptr<tsl::Gui> createMainGui();
-    return createMainGui();
-}
 
 int main(int argc, char** argv) {
     return tsl::loop<TotkExplorerOverlay>(argc, argv);
