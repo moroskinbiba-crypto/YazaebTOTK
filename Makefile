@@ -17,7 +17,7 @@ APP_TITLE := TOTK Explorer
 APP_VERSION := 3.2.0
 TARGET := TOTK-Explorer-v3
 BUILD := build
-SOURCES := source
+SOURCES := source libs/libtesla/source
 INCLUDES := include libs/libtesla/include
 NO_ICON := 1
 
