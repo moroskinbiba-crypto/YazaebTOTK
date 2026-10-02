@@ -74,7 +74,6 @@ jobs:
           make clean
           make -j2
           test -s TOTK-Explorer-v3.ovl
-          file TOTK-Explorer-v3.ovl
 
       - name: Package
         run: |
