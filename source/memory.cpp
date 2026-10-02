@@ -478,6 +478,14 @@ void startAutoScan() {
     if (!g.dmntReady && R_FAILED(initMemory()))
         return;
 
+    // Exact 1.4.3 resolver is always preferred. The fallback scanner should
+    // only run when the exact Player actor cannot currently be resolved.
+    if (g_exactBuild && refreshExactPlayer()) {
+        g.stage = ScanStage::Ready;
+        g.message = "Exact 1.4.3 Player actor coordinates active.";
+        return;
+    }
+
     g.candidatesList.clear();
     g.candidatesList.reserve(MAX_CANDIDATES);
     g.candidates = 0;
