@@ -24,9 +24,12 @@ jobs:
           test -n "${DEVKITPRO}"
           test -d "${DEVKITPRO}/libnx"
           test -d "${DEVKITPRO}/devkitA64"
+          echo "--- devkitA64/bin ---"
+          ls -la "${DEVKITPRO}/devkitA64/bin" || true
+          echo "--- candidate compilers ---"
+          find "${DEVKITPRO}/devkitA64" -maxdepth 3 -type f \( -name "*g++*" -o -name "*gcc*" \) -print | head -80
           echo "${DEVKITPRO}/devkitA64/bin" >> "$GITHUB_PATH"
           command -v make
-          command -v aarch64-none-elf-g++
           command -v elf2nro
           test -f "${DEVKITPRO}/libnx/switch_rules"
 
