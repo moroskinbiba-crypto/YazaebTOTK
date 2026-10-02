@@ -60,7 +60,7 @@ public:
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Auto Discovery");
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::CategoryHeader("Automatic coordinate detection"));
+        list->addItem(new tsl::elm::ListItem("Automatic coordinate detection"));
         stageItem = new tsl::elm::ListItem("Stage");
         statusItem = new tsl::elm::ListItem("Status");
         progressItem = new tsl::elm::ListItem("Scan progress");
@@ -84,7 +84,7 @@ public:
         });
         list->addItem(start);
 
-        list->addItem(new tsl::elm::CategoryHeader("Calibration"));
+        list->addItem(new tsl::elm::ListItem("Calibration"));
         list->addItem(new tsl::elm::ListItem("X", "After walking, press X"));
         list->addItem(new tsl::elm::ListItem("X again", "After jumping, press X"));
         list->addItem(new tsl::elm::ListItem("Y", "Reset scan"));
@@ -99,7 +99,7 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
         if (keysDown & KEY_X) {
             if (ex::state().stage == ex::ScanStage::WaitMove)
                 ex::captureMove();
@@ -189,14 +189,14 @@ public:
         posItem = new tsl::elm::ListItem("Position");
         list->addItem(layerItem);
         list->addItem(posItem);
-        list->addItem(new tsl::elm::CategoryHeader("Local map — @ Link  S Shrine  K Korok  L Lightroot  T Tower  C Cave  H Chasm"));
+        list->addItem(new tsl::elm::ListItem("Local map — @ Link  S Shrine  K Korok  L Lightroot  T Tower  C Cave  H Chasm"));
 
         for (std::size_t i = 0; i < GRID; ++i) {
             rows[i] = new tsl::elm::ListItem("Map " + std::to_string(i + 1));
             list->addItem(rows[i]);
         }
 
-        list->addItem(new tsl::elm::CategoryHeader("Nearby"));
+        list->addItem(new tsl::elm::ListItem("Nearby"));
         for (std::size_t i = 0; i < NEARBY; ++i) {
             nearbyItems[i] = new tsl::elm::ListItem("Point " + std::to_string(i + 1));
             list->addItem(nearbyItems[i]);
@@ -212,7 +212,7 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
         if (keysDown & KEY_B) {
             tsl::goBack();
             return true;
@@ -243,7 +243,7 @@ public:
     tsl::elm::Element* createUI() override {
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Nearby");
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Nearest database points"));
+        list->addItem(new tsl::elm::ListItem("Nearest database points"));
         for (std::size_t i = 0; i < MAX; ++i) {
             items[i] = new tsl::elm::ListItem("Point " + std::to_string(i + 1));
             list->addItem(items[i]);
@@ -258,7 +258,7 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
         if (keysDown & KEY_B) {
             tsl::goBack();
             return true;
@@ -288,12 +288,12 @@ public:
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Diagnostics");
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::CategoryHeader("Target"));
+        list->addItem(new tsl::elm::ListItem("Target"));
         list->addItem(new tsl::elm::ListItem("Title ID", ex::TITLE_TEXT));
         list->addItem(new tsl::elm::ListItem("Version", ex::GAME_VERSION));
         list->addItem(new tsl::elm::ListItem("Build ID", ex::BID_TEXT));
 
-        list->addItem(new tsl::elm::CategoryHeader("Runtime"));
+        list->addItem(new tsl::elm::ListItem("Runtime"));
         dmntItem = new tsl::elm::ListItem("dmnt:cht");
         pidItem = new tsl::elm::ListItem("PID");
         heapItem = new tsl::elm::ListItem("Heap bytes");
@@ -305,7 +305,7 @@ public:
         list->addItem(pointsItem);
         list->addItem(layerItem);
 
-        list->addItem(new tsl::elm::CategoryHeader("Safety"));
+        list->addItem(new tsl::elm::ListItem("Safety"));
         list->addItem(new tsl::elm::ListItem("Progress flags", "Not enabled"));
         list->addItem(new tsl::elm::ListItem("Memory writes", "Disabled"));
 
@@ -319,7 +319,7 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
         if (keysDown & KEY_B) {
             tsl::goBack();
             return true;
@@ -339,7 +339,7 @@ public:
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", ex::VERSION);
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::CategoryHeader("Tears of the Kingdom 1.4.3"));
+        list->addItem(new tsl::elm::ListItem("Tears of the Kingdom 1.4.3"));
         list->addItem(new tsl::elm::ListItem("BID", ex::BID_TEXT));
         memoryItem = new tsl::elm::ListItem("Memory");
         coordsItem = new tsl::elm::ListItem("Coordinates");
@@ -399,7 +399,7 @@ public:
             : "Not discovered");
     }
 
-    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
         if (keysDown & KEY_B) {
             tsl::Overlay::get()->close();
             return true;
