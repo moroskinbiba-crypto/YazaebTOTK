@@ -1,5 +1,6 @@
 #include <tesla.hpp>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -75,7 +76,7 @@ public:
 
         auto* start = new tsl::elm::ListItem("Start / Restart Scan");
         start->setClickListener([](u64 keys) {
-            if (keys & HidNpadButton_A) {
+            if (keys & KEY_A) {
                 ex::startAutoScan();
                 return true;
             }
@@ -98,8 +99,8 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & HidNpadButton_X) {
+    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+        if (keysDown & KEY_X) {
             if (ex::state().stage == ex::ScanStage::WaitMove)
                 ex::captureMove();
             else if (ex::state().stage == ex::ScanStage::WaitJump)
@@ -107,12 +108,12 @@ public:
             return true;
         }
 
-        if (keysDown & HidNpadButton_Y) {
+        if (keysDown & KEY_Y) {
             ex::resetScan();
             return true;
         }
 
-        if (keysDown & HidNpadButton_B) {
+        if (keysDown & KEY_B) {
             tsl::goBack();
             return true;
         }
@@ -211,8 +212,8 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & HidNpadButton_B) {
+    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+        if (keysDown & KEY_B) {
             tsl::goBack();
             return true;
         }
@@ -257,8 +258,8 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & HidNpadButton_B) {
+    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+        if (keysDown & KEY_B) {
             tsl::goBack();
             return true;
         }
@@ -318,8 +319,8 @@ public:
         refresh();
     }
 
-    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & HidNpadButton_B) {
+    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+        if (keysDown & KEY_B) {
             tsl::goBack();
             return true;
         }
@@ -347,7 +348,7 @@ public:
 
         auto* scan = new tsl::elm::ListItem("Auto Discovery");
         scan->setClickListener([](u64 keys) {
-            if (keys & HidNpadButton_A) {
+            if (keys & KEY_A) {
                 tsl::changeTo<ScanGui>();
                 return true;
             }
@@ -357,7 +358,7 @@ public:
 
         auto* map = new tsl::elm::ListItem("Dynamic Map");
         map->setClickListener([](u64 keys) {
-            if (keys & HidNpadButton_A) {
+            if (keys & KEY_A) {
                 tsl::changeTo<MapGui>();
                 return true;
             }
@@ -367,7 +368,7 @@ public:
 
         auto* nearby = new tsl::elm::ListItem("Nearby Objects");
         nearby->setClickListener([](u64 keys) {
-            if (keys & HidNpadButton_A) {
+            if (keys & KEY_A) {
                 tsl::changeTo<NearbyGui>();
                 return true;
             }
@@ -377,7 +378,7 @@ public:
 
         auto* info = new tsl::elm::ListItem("Build / Diagnostics");
         info->setClickListener([](u64 keys) {
-            if (keys & HidNpadButton_A) {
+            if (keys & KEY_A) {
                 tsl::changeTo<InfoGui>();
                 return true;
             }
@@ -398,8 +399,8 @@ public:
             : "Not discovered");
     }
 
-    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & HidNpadButton_B) {
+    bool handleInput(u64 keysDown, u64, touchPosition, JoystickPosition, JoystickPosition) override {
+        if (keysDown & KEY_B) {
             tsl::Overlay::get()->close();
             return true;
         }
