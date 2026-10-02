@@ -11,7 +11,7 @@ inline constexpr u64 TITLE_ID = 0x0100F2C0115B6000ULL;
 inline constexpr const char* TITLE_TEXT = "0100F2C0115B6000";
 inline constexpr const char* BID_TEXT = "277178B7DBA1B6D4";
 inline constexpr const char* GAME_VERSION = "1.4.3";
-inline constexpr const char* VERSION = "3.2.0";
+inline constexpr const char* VERSION = "3.3.0";
 
 struct Vec3 { float x{}, y{}, z{}; };
 struct Point { std::string type, name; float x{}, y{}, z{}; };
@@ -33,8 +33,13 @@ struct State {
     std::size_t candidatesSeen{};
     Vec3 player{};
     bool playerValid{};
+    bool exactPlayer{};
+    bool buildIdMatched{};
     bool dmntReady{};
     bool attachedByUs{};
+    u64 mainBase{};
+    u64 mainSize{};
+    u64 playerActor{};
     Profile profile{};
     std::vector<Candidate> candidatesList{};
     std::vector<Point> points{};
