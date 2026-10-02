@@ -13,10 +13,29 @@ namespace {
 State g{};
 DmntCheatProcessMetadata g_meta{};
 bool g_dmntInitialized = false;
+bool g_exactBuild = false;
 
-// Keep per-frame memory bounded. Candidates are reservoir-sampled so the
-// scanner does not stop at the first few megabytes of heap noise.
-constexpr u64 SCAN_CHUNK = 0x80000; // 512 KiB per overlay update.
+// Public 1.4.3 game-layout profile used by the exact actor resolver.
+// Scene-module singleton: main + 0x1AFBE4.
+// Scene -> components: +0x1E8 then +0x58.
+// Resident actor manager: components[13].
+// Resident manager: count +0x20, list +0x28.
+// Resident link: stride 0x70, linkData +0x08, actor +0x40.
+// Actor: name pointer +0x218, world position +0x2B4.
+constexpr u64 TOTK_143_SCENE_MODULE = 0x1AFBE4;
+constexpr u64 SCENE_FROM_MODULE = 0x1E8;
+constexpr u64 SCENE_COMPONENTS = 0x58;
+constexpr u64 RESIDENT_COMPONENT_INDEX = 13;
+constexpr u64 RESIDENT_COUNT = 0x20;
+constexpr u64 RESIDENT_LIST = 0x28;
+constexpr u64 RESIDENT_STRIDE = 0x70;
+constexpr u64 RESIDENT_DESCRIPTOR = 0x08;
+constexpr u64 ACTOR_FROM_DESCRIPTOR = 0x40;
+constexpr u64 ACTOR_NAME = 0x218;
+constexpr u64 ACTOR_POSITION = 0x2B4;
+
+// Heuristic fallback scanner.
+constexpr u64 SCAN_CHUNK = 0x80000;
 constexpr std::size_t MAX_CANDIDATES = 4096;
 constexpr float MAX_XZ = 12000.0f;
 constexpr float MAX_Y = 6000.0f;
@@ -44,6 +63,10 @@ bool plausible(Vec3 p) {
     return true;
 }
 
+bool plausibleAddress(u64 address) {
+    return address >= 0x1000000ULL && address < 0x8000000000ULL && (address & 0x7ULL) == 0;
+}
+
 u64 nextRandom() {
     u64 x = rngState;
     x ^= x << 13;
@@ -59,6 +82,20 @@ void fail(const char* message) {
     g.message = message;
 }
 
+bool buildIdMatches143() {
+    // Atmosphere exposes a 0x20-byte NSO build ID. The cheat/BID convention
+    // used by TOTK stores the first 8 bytes as the 16-hex-digit BID.
+    constexpr char HEX[] = "0123456789ABCDEF";
+    constexpr char BID[] = "277178B7DBA1B6D4";
+    for (std::size_t i = 0; i < 8; ++i) {
+        const u8 byte = g_meta.main_nso_build_id[i];
+        if (HEX[(byte >> 4) & 0xF] != BID[i * 2] ||
+            HEX[byte & 0xF] != BID[i * 2 + 1])
+            return false;
+    }
+    return true;
+}
+
 bool findTargetProcess() {
     if (R_FAILED(dmntchtGetCheatProcessMetadata(&g_meta)))
         return false;
@@ -66,19 +103,138 @@ bool findTargetProcess() {
     if (g_meta.title_id != TITLE_ID)
         return false;
 
-    if (g_meta.process_id == 0 || g_meta.heap_extents.base == 0 || g_meta.heap_extents.size < 0x1000)
+    if (g_meta.process_id == 0 ||
+        g_meta.main_nso_extents.base == 0 ||
+        g_meta.main_nso_extents.size < 0x1000 ||
+        g_meta.heap_extents.base == 0 ||
+        g_meta.heap_extents.size < 0x1000)
         return false;
 
     g.processId = g_meta.process_id;
+    g.mainBase = g_meta.main_nso_extents.base;
+    g.mainSize = g_meta.main_nso_extents.size;
     g.heapBase = g_meta.heap_extents.base;
     g.heapSize = g_meta.heap_extents.size;
+    g.buildIdMatched = buildIdMatches143();
+    g_exactBuild = g.buildIdMatched;
     return true;
 }
 
+bool readMem(u64 address, void* out, std::size_t size) {
+    if (!out || size == 0)
+        return false;
+    return R_SUCCEEDED(dmntchtReadCheatProcessMemory(address, out, size));
+}
+
+bool readU64(u64 address, u64& out) {
+    return readMem(address, &out, sizeof(out)) && plausibleAddress(out);
+}
+
 bool readVec3(u64 address, Vec3& out) {
-    if (R_FAILED(dmntchtReadCheatProcessMemory(address, &out, sizeof(out))))
+    if (!readMem(address, &out, sizeof(out)))
         return false;
     return plausible(out);
+}
+
+bool readRemoteCString(u64 address, char* out, std::size_t capacity) {
+    if (!out || capacity == 0 || !plausibleAddress(address))
+        return false;
+    std::memset(out, 0, capacity);
+    if (R_FAILED(dmntchtReadCheatProcessMemory(address, out, capacity - 1)))
+        return false;
+    out[capacity - 1] = '\0';
+    return std::memchr(out, '\0', capacity) != nullptr;
+}
+
+bool actorNameIs(u64 actor, const char* wanted) {
+    u64 name = 0;
+    if (!readU64(actor + ACTOR_NAME, name))
+        return false;
+
+    char buffer[64]{};
+    if (!readRemoteCString(name, buffer, sizeof(buffer)))
+        return false;
+    return std::strncmp(buffer, wanted, sizeof(buffer)) == 0;
+}
+
+bool resolveExactPlayerActor(u64& actorOut) {
+    actorOut = 0;
+    if (!g_exactBuild || g.mainBase == 0)
+        return false;
+
+    u64 sceneModule = 0;
+    if (!readU64(g.mainBase + TOTK_143_SCENE_MODULE, sceneModule))
+        return false;
+
+    u64 scene = 0;
+    if (!readU64(sceneModule + SCENE_FROM_MODULE, scene))
+        return false;
+
+    u64 components = 0;
+    if (!readU64(scene + SCENE_COMPONENTS, components))
+        return false;
+
+    u64 actorManager = 0;
+    if (!readU64(components + sizeof(u64) * RESIDENT_COMPONENT_INDEX, actorManager))
+        return false;
+
+    u32 count = 0;
+    if (!readMem(actorManager + RESIDENT_COUNT, &count, sizeof(count)))
+        return false;
+    if (count == 0 || count > 512)
+        return false;
+
+    u64 list = 0;
+    if (!readU64(actorManager + RESIDENT_LIST, list))
+        return false;
+
+    for (u32 index = 0; index < count; ++index) {
+        const u64 link = list + static_cast<u64>(index) * RESIDENT_STRIDE;
+
+        u64 descriptor = 0;
+        if (!readU64(link + RESIDENT_DESCRIPTOR, descriptor))
+            continue;
+
+        u64 actor = 0;
+        if (!readU64(descriptor + ACTOR_FROM_DESCRIPTOR, actor))
+            continue;
+
+        if (actorNameIs(actor, "Player")) {
+            actorOut = actor;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool refreshExactPlayer() {
+    if (!g_exactBuild)
+        return false;
+
+    if (g.playerActor != 0 && actorNameIs(g.playerActor, "Player")) {
+        Vec3 value{};
+        if (readVec3(g.playerActor + ACTOR_POSITION, value)) {
+            g.player = value;
+            g.playerValid = true;
+            g.exactPlayer = true;
+            return true;
+        }
+    }
+
+    u64 actor = 0;
+    if (!resolveExactPlayerActor(actor))
+        return false;
+
+    Vec3 value{};
+    if (!readVec3(actor + ACTOR_POSITION, value))
+        return false;
+
+    g.playerActor = actor;
+    g.player = value;
+    g.playerValid = true;
+    g.exactPlayer = true;
+    return true;
 }
 
 bool readProfileFile(Profile& profile) {
@@ -235,9 +391,11 @@ void selectBest() {
     g.profile = Profile{true, best->heapOffset, best->value, best->score};
     g.player = best->value;
     g.playerValid = true;
+    g.exactPlayer = false;
+    g.playerActor = 0;
     saveProfile();
     g.stage = ScanStage::Ready;
-    g.message = "Coordinate candidate selected and saved.";
+    g.message = "Heuristic coordinate candidate selected and saved.";
 }
 
 } // namespace
@@ -278,13 +436,25 @@ Result initMemory() {
         return 1;
     }
 
+    if (g_exactBuild && refreshExactPlayer()) {
+        g.stage = ScanStage::Ready;
+        g.message = "Exact 1.4.3 Player actor coordinates active.";
+        return 0;
+    }
+
     loadProfile();
     if (g.profile.valid) {
         refreshPlayer();
         if (g.playerValid) {
             g.stage = ScanStage::Ready;
-            g.message = "Saved profile loaded. Use Auto Discovery if coordinates are wrong.";
+            g.message = g.buildIdMatched
+                ? "Exact actor not resolved; using saved heuristic profile."
+                : "Build ID mismatch; using saved heuristic profile.";
         }
+    } else {
+        g.message = g.buildIdMatched
+            ? "Build ID matched, but Player actor was not resolved."
+            : "Target title found, but Build ID did not match 1.4.3.";
     }
 
     return 0;
@@ -314,12 +484,13 @@ void startAutoScan() {
     g.candidatesSeen = 0;
     g.cursor = 0;
     g.scanned = 0;
-    g.profile.valid = false;
-    g.playerValid = false;
     g.error.clear();
     rngState = 0x9E3779B97F4A7C15ULL ^ g.heapBase;
     g.stage = ScanStage::Scanning;
-    g.message = "Scanning game memory...";
+    g.message = "Scanning game memory (heuristic fallback)...";
+    g.exactPlayer = false;
+    g.playerActor = 0;
+    g.playerValid = false;
 }
 
 void captureMove() {
@@ -354,9 +525,17 @@ void resetScan() {
     g.cursor = 0;
     g.scanned = 0;
     g.playerValid = false;
+    g.exactPlayer = false;
+    g.playerActor = 0;
 }
 
 void refreshPlayer() {
+    if (g.exactBuild && refreshExactPlayer()) {
+        g.stage = ScanStage::Ready;
+        g.message = "Exact 1.4.3 Player actor coordinates active.";
+        return;
+    }
+
     if (!g.profile.valid || g.heapBase == 0 || g.profile.offset >= g.heapSize) {
         g.playerValid = false;
         return;
@@ -370,6 +549,8 @@ void refreshPlayer() {
 
     g.player = value;
     g.playerValid = true;
+    g.exactPlayer = false;
+    g.playerActor = 0;
 }
 
 void tick() {
@@ -426,4 +607,5 @@ std::string layerName(const Vec3& p) {
     return "Surface";
 }
 
+} // namespace ex
 } // namespace ex
