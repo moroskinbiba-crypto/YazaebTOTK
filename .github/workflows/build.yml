@@ -23,6 +23,8 @@ jobs:
           set -eux
           test -n "${DEVKITPRO}"
           test -d "${DEVKITPRO}/libnx"
+          test -d "${DEVKITPRO}/devkitA64"
+          echo "${DEVKITPRO}/devkitA64/bin" >> "$GITHUB_PATH"
           command -v make
           command -v aarch64-none-elf-g++
           command -v elf2nro
