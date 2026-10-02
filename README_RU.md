@@ -1,4 +1,4 @@
-# TOTK Explorer v3.1.0 — reviewed build
+# TOTK Explorer v3.2.0 — build pipeline
 
 Tesla overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -7,28 +7,25 @@ Target build:
 - Title ID: 0100F2C0115B6000
 - Build ID: 277178B7DBA1B6D4
 
-## Changes in this reviewed build
+## Что исправлено
 
-- GitHub Actions validates `data/points.csv` before packaging.
-- Artifact upload uses `include-hidden-files: true`, so `switch/.overlays/*.ovl` is retained.
-- Workflow supports both `main` and `master` and exposes `workflow_dispatch`.
-- Repository paths use real dot-prefixed GitHub names; no leading-underscore aliases are used.
-- libtesla is fetched from tag `v1.3.3`.
-- `libdmntcht.a` is verified before compile.
-- Candidate storage is capped at 4096 entries and uses reservoir sampling instead of stopping at the first 20,000 matches.
-- The duplicate moving-candidate vector was removed.
-- Scan UI, coordinates, map and diagnostics update their `ListItem` values during `update()`.
-- Build and package steps verify that the final `.ovl` exists and is non-empty.
+- CI использует devkitPro/devkitA64 и проверяет наличие `switch_rules`, C++-компилятора и `elf2nro` до сборки.
+- libtesla берётся из зафиксированного коммита Status-Monitor-Deux, в котором есть совместимые с текущим проектом имена кнопок и сигнатура `handleInput`.
+- `dmnt:cht` берётся из зафиксированного коммита Shiny-Stash-Live-Map вместе с `libdmntcht.a` и `dmntcht.h`.
+- `source/ui.cpp` явно подключает `<cmath>` для `sqrt/lround`.
+- Артефакт CI принудительно включает скрытый каталог `.overlays`.
 
-## What is intentionally not claimed
+## Что пока НЕ утверждается
 
-The coordinate scanner is heuristic. It looks for float triples in the TOTK heap and filters them using player movement and vertical movement. It is not a guaranteed game-structure parser. A successful scan must be validated on the target Switch build.
+Сканер координат остаётся эвристическим: он ищет тройки `float` в памяти процесса и отбраковывает неподходящие значения, затем использует движение игрока и прыжок для выбора кандидата. Это не доказанный парсер внутренней структуры TOTK и не гарантирует корректные координаты без проверки на реальной консоли.
 
-The point database is intentionally empty apart from comments. The map/nearby engine reads verified points from `sd:/switch/totk_explorer/points.csv`.
+База точек намеренно пустая, кроме комментариев в `data/points.csv`. Карта и список nearby показывают только точки, которые будут добавлены в этот CSV после отдельной проверки.
 
-## Build
+## Сборка
 
-Use the GitHub Actions workflow `TOTK Explorer Build`, or a devkitPro/devkitA64 environment with:
+В GitHub Actions запускается workflow `TOTK Explorer Build`.
+
+Локально:
 
 ```sh
 bash tools/setup_deps.sh
@@ -36,11 +33,11 @@ make clean
 make -j2
 ```
 
-The result is `TOTK-Explorer-v3.ovl`.
+Результат: `TOTK-Explorer-v3.ovl`.
 
-## Installation
+## Установка
 
-Copy the `switch` directory from the build artifact to the root of the microSD card:
+Из артефакта CI содержимое `switch` копируется в корень microSD:
 
 ```text
 sd:/switch/.overlays/TOTK-Explorer-v3.ovl
