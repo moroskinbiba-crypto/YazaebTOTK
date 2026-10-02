@@ -1,4 +1,4 @@
-# TOTK Explorer v3.3.0 — build pipeline
+# TOTK Explorer v3.3.1 — build pipeline
 
 Tesla overlay for The Legend of Zelda: Tears of the Kingdom.
 
