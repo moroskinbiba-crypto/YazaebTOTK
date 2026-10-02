@@ -530,7 +530,7 @@ void resetScan() {
 }
 
 void refreshPlayer() {
-    if (g.exactBuild && refreshExactPlayer()) {
+    if (g_exactBuild && refreshExactPlayer()) {
         g.stage = ScanStage::Ready;
         g.message = "Exact 1.4.3 Player actor coordinates active.";
         return;
@@ -607,5 +607,4 @@ std::string layerName(const Vec3& p) {
     return "Surface";
 }
 
-} // namespace ex
 } // namespace ex
