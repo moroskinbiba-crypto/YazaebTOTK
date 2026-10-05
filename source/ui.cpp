@@ -292,6 +292,8 @@ class InfoGui final : public tsl::Gui {
     tsl::elm::ListItem* layerItem{};
     tsl::elm::ListItem* buildIdItem{};
     tsl::elm::ListItem* sourceItem{};
+    tsl::elm::ListItem* actorItem{};
+    tsl::elm::ListItem* rejectedItem{};
 
     void refresh() {
         const auto& state = ex::state();
