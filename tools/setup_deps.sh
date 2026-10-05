@@ -32,6 +32,7 @@ install -m 0644 "$TMP/dmnt/include/switch/dmntcht.h" "$ROOT/include/switch/dmntc
 
 test -s "$ROOT/libs/libultrahand/ultrahand.mk"
 test -s "$ROOT/libs/libultrahand/libtesla/include/tesla.hpp"
+test -s "$ROOT/libs/libultrahand/libultra/include/ini_funcs.hpp"
 test -d "$ROOT/libs/libultrahand/libultra/source"
 test -d "$ROOT/libs/libultrahand/common"
 test -s "$ROOT/libs/libdmntcht.a"
