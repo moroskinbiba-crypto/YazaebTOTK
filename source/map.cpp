@@ -8,12 +8,25 @@
 
 namespace ex {
 
+namespace {
+
+bool sameLayer(const Point& point, const Vec3& player) {
+    if (point.layer.empty())
+        return true;
+    return point.layer == layerName(player);
+}
+
+} // namespace
+
 void loadPoints() {
     state().points.clear();
+    state().pointsRejected = 0;
 
     FILE* file = std::fopen("sdmc:/switch/totk_explorer/points.csv", "rb");
-    if (!file)
+    if (!file) {
+        logMessage("points.csv not found");
         return;
+    }
 
     char line[512]{};
     while (std::fgets(line, sizeof(line), file)) {
@@ -22,14 +35,25 @@ void loadPoints() {
 
         char type[64]{};
         char name[192]{};
+        char layer[32]{};
         float x = 0.0f, y = 0.0f, z = 0.0f;
 
-        if (std::sscanf(line, "%63[^,],%191[^,],%f,%f,%f", type, name, &x, &y, &z) == 5) {
-            state().points.push_back(Point{type, name, x, y, z});
+        const int parsed = std::sscanf(
+            line,
+            "%63[^,],%191[^,],%f,%f,%f,%31[^\r\n]",
+            type, name, &x, &y, &z, layer);
+
+        if (parsed == 5) {
+            state().points.push_back(Point{type, name, "", x, y, z});
+        } else if (parsed == 6) {
+            state().points.push_back(Point{type, name, layer, x, y, z});
+        } else {
+            ++state().pointsRejected;
         }
     }
 
     std::fclose(file);
+    logMessage("points.csv loaded");
 }
 
 std::vector<Point> nearby(float radius, std::size_t maxCount) {
@@ -47,6 +71,9 @@ std::vector<Point> nearby(float radius, std::size_t maxCount) {
     const float radiusSquared = radius * radius;
 
     for (const auto& point : state().points) {
+        if (!sameLayer(point, state().player))
+            continue;
+
         const float dx = point.x - state().player.x;
         const float dy = point.y - state().player.y;
         const float dz = point.z - state().player.z;
