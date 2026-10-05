@@ -584,7 +584,7 @@ void refreshPlayer() {
 }
 
 void tick() {
-    if (!g_dmntReady)
+    if (!g.dmntReady)
         return;
 
     ++g_healthTicks;
