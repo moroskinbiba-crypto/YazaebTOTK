@@ -19,7 +19,7 @@ std::string distanceText(const ex::Vec3& player, const ex::Point& point) {
     const float dx = point.x - player.x;
     const float dy = point.y - player.y;
     const float dz = point.z - player.z;
-    const float distance = std::sqrt(dx * dx + dz * dz + 0.25f * dy * dy);
+    const float distance = std::sqrt(dx * dx + dy * dy + 0.25f * dz * dz);
 
     char buffer[48]{};
     std::snprintf(buffer, sizeof(buffer), "%.0f m", static_cast<double>(distance));
@@ -163,9 +163,9 @@ class MapGui final : public tsl::Gui {
 
         for (const auto& point : points) {
             const float dx = point.x - player.x;
-            const float dz = point.z - player.z;
+            const float dy = point.y - player.y;
             const int gx = static_cast<int>(std::lround(dx / CELL_SIZE)) + static_cast<int>(GRID / 2);
-            const int gy = static_cast<int>(std::lround(dz / CELL_SIZE)) + static_cast<int>(GRID / 2);
+            const int gy = static_cast<int>(std::lround(dy / CELL_SIZE)) + static_cast<int>(GRID / 2);
             if (gx < 0 || gx >= static_cast<int>(GRID) || gy < 0 || gy >= static_cast<int>(GRID) || gy != row)
                 continue;
             cells[static_cast<std::size_t>(gx)] = marker(point);
