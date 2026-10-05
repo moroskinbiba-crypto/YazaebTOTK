@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------
-# TOTK Explorer - Tesla Overlay
+# TOTK Explorer - Ultrahand Overlay
 # Target: The Legend of Zelda: Tears of the Kingdom 1.4.0-1.4.3
 #---------------------------------------------------------------------------------
 .SUFFIXES:
@@ -14,11 +14,14 @@ TOPDIR := $(patsubst %/,%,$(TOPDIR))
 include $(DEVKITPRO)/libnx/switch_rules
 
 APP_TITLE := TOTK Explorer
-APP_VERSION := 3.4.1
+APP_VERSION := 3.4.2
 TARGET := TOTK-Explorer-v3
 BUILD := build
-SOURCES := source libs/libtesla/source
-INCLUDES := include libs/libtesla/include
+SOURCES := source
+INCLUDES := include
+
+# libultrahand is the maintained Ultrahand/libtesla foundation used by Tetris.
+include $(TOPDIR)/libs/libultrahand/ultrahand.mk
 NO_ICON := 1
 
 ARCH := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
@@ -27,7 +30,7 @@ CFLAGS += $(INCLUDE) -D__SWITCH__
 CXXFLAGS := $(CFLAGS) -fno-exceptions -std=c++20
 ASFLAGS := -g $(ARCH)
 LDFLAGS = -specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LIBS := $(TOPDIR)/libs/libdmntcht.a -lnx
+LIBS := -lcurl -lz -lmbedtls -lmbedx509 -lmbedcrypto $(TOPDIR)/libs/libdmntcht.a -lnx
 LIBDIRS := $(TOPDIR)/libs $(PORTLIBS) $(LIBNX)
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
@@ -75,7 +78,8 @@ verify-layout:
 	@test -f $(TOPDIR)/source/map.cpp
 	@test -f $(TOPDIR)/source/ui.cpp
 	@test -f $(TOPDIR)/libs/libdmntcht.a
-	@test -f $(TOPDIR)/libs/libtesla/include/tesla.hpp
+	@test -f $(TOPDIR)/libs/libultrahand/ultrahand.mk
+	@test -f $(TOPDIR)/libs/libultrahand/libtesla/include/tesla.hpp
 
 clean:
 	@rm -fr $(BUILD) $(TARGET).ovl $(TARGET).nro $(TARGET).nacp $(TARGET).elf $(TARGET).map
