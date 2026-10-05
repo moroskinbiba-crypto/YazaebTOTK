@@ -13,7 +13,13 @@ namespace {
 bool sameLayer(const Point& point, const Vec3& player) {
     if (point.layer.empty())
         return true;
-    return point.layer == layerName(player);
+
+    // Depths can be separated safely by height. Surface and Sky overlap in
+    // altitude, so keep both available outside the Depths instead of guessing.
+    if (player.y < -100.0f)
+        return point.layer == "Depths";
+
+    return point.layer != "Depths";
 }
 
 } // namespace
