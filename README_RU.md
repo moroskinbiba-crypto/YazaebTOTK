@@ -1,4 +1,4 @@
-# TOTK Explorer v3.4.2 — multi-version Player resolver
+# TOTK Explorer v3.4.3 — graphical Map HUD
 
 Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom.
 
