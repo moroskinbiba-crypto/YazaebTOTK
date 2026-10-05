@@ -328,7 +328,6 @@ public:
         heapItem = new tsl::elm::ListItem("Heap bytes");
         pointsItem = new tsl::elm::ListItem("Map points");
         layerItem = new tsl::elm::ListItem("World layer");
-        buildIdItem = new tsl::elm::ListItem("Build ID match");
         sourceItem = new tsl::elm::ListItem("Coordinate source");
         list->addItem(dmntItem);
         list->addItem(pidItem);
