@@ -16,14 +16,28 @@ bool g_dmntInitialized = false;
 bool g_exactBuild = false;
 u32 g_healthTicks = 0;
 
-// Public 1.4.3 game-layout profile used by the exact actor resolver.
-// Scene-module singleton: main + 0x1AFBE4.
+struct GameProfile {
+    const char* version;
+    const char* bid;
+    u64 sceneModule;
+};
+
+constexpr GameProfile kGameProfiles[] = {
+    {"1.4.0", "6265F94D606242CE", 0x2C02CC},
+    {"1.4.1", "965EAB9CEB8EB867", 0x4D421C},
+    {"1.4.2", "5CB42B1CF25469FB", 0x6570B0},
+    {"1.4.3", "277178B7DBA1B6D4", 0x1AFBE4},
+};
+static_assert(sizeof(kGameProfiles) / sizeof(kGameProfiles[0]) == 4);
+
+const GameProfile* g_gameProfile = nullptr;
+
+// Shared Player layout for 1.4.0-1.4.3:
 // Scene -> components: +0x1E8 then +0x58.
 // Resident actor manager: components[13].
 // Resident manager: count +0x20, list +0x28.
 // Resident link: stride 0x70, linkData +0x08, actor +0x40.
 // Actor: name pointer +0x218, world position +0x2B4.
-constexpr u64 TOTK_143_SCENE_MODULE = 0x1AFBE4;
 constexpr u64 SCENE_FROM_MODULE = 0x1E8;
 constexpr u64 SCENE_COMPONENTS = 0x58;
 constexpr u64 RESIDENT_COMPONENT_INDEX = 13;
@@ -89,18 +103,34 @@ void fail(const char* message) {
     g.message = message;
 }
 
-bool buildIdMatches143() {
-    // Atmosphere exposes a 0x20-byte NSO build ID. The cheat/BID convention
-    // used by TOTK stores the first 8 bytes as the 16-hex-digit BID.
+const GameProfile* matchGameProfile() {
     constexpr char HEX[] = "0123456789ABCDEF";
-    constexpr char BID[] = "277178B7DBA1B6D4";
+    for (const auto& profile : kGameProfiles) {
+        bool match = true;
+        for (std::size_t i = 0; i < 8; ++i) {
+            const u8 byte = g_meta.main_nso_build_id[i];
+            if (HEX[(byte >> 4) & 0xF] != profile.bid[i * 2] ||
+                HEX[byte & 0xF] != profile.bid[i * 2 + 1]) {
+                match = false;
+                break;
+            }
+        }
+        if (match)
+            return &profile;
+    }
+    return nullptr;
+}
+
+void updateBuildInfo() {
+    constexpr char HEX[] = "0123456789ABCDEF";
+    char bid[17]{};
     for (std::size_t i = 0; i < 8; ++i) {
         const u8 byte = g_meta.main_nso_build_id[i];
-        if (HEX[(byte >> 4) & 0xF] != BID[i * 2] ||
-            HEX[byte & 0xF] != BID[i * 2 + 1])
-            return false;
+        bid[i * 2] = HEX[(byte >> 4) & 0xF];
+        bid[i * 2 + 1] = HEX[byte & 0xF];
     }
-    return true;
+    g.buildId = bid;
+    g.gameVersion = g_gameProfile ? g_gameProfile->version : "unsupported";
 }
 
 bool findTargetProcess() {
@@ -118,6 +148,7 @@ bool findTargetProcess() {
         return false;
 
     const u64 previousPid = g.processId;
+    const GameProfile* previousGameProfile = g_gameProfile;
     const bool previousExactBuild = g_exactBuild;
     g.processId = g_meta.process_id;
     if (previousPid != 0 && previousPid != g.processId) {
@@ -129,12 +160,23 @@ bool findTargetProcess() {
     g.mainSize = g_meta.main_nso_extents.size;
     g.heapBase = g_meta.heap_extents.base;
     g.heapSize = g_meta.heap_extents.size;
-    g.buildIdMatched = buildIdMatches143();
+    g_gameProfile = matchGameProfile();
+    g.buildIdMatched = g_gameProfile != nullptr;
     g_exactBuild = g.buildIdMatched;
-    if (previousPid != g.processId || previousExactBuild != g_exactBuild) {
-        logMessage(g.buildIdMatched
-            ? "Target process found; Build ID matched 1.4.3."
-            : "Target process found; Build ID mismatch.");
+    updateBuildInfo();
+
+    if (previousPid != g.processId || previousExactBuild != g_exactBuild || previousGameProfile != g_gameProfile) {
+        g.playerActor = 0;
+        g.playerValid = false;
+        if (g_gameProfile) {
+            char message[96]{};
+            std::snprintf(message, sizeof(message),
+                          "Target process found; supported TOTK build %s matched.",
+                          g_gameProfile->version);
+            logMessage(message);
+        } else {
+            logMessage("Target process found; unsupported TOTK build; using fallback.");
+        }
     }
     return true;
 }
@@ -178,11 +220,11 @@ bool actorNameIs(u64 actor, const char* wanted) {
 
 bool resolveExactPlayerActor(u64& actorOut) {
     actorOut = 0;
-    if (!g_exactBuild || g.mainBase == 0)
+    if (!g_exactBuild || !g_gameProfile || g.mainBase == 0)
         return false;
 
     u64 sceneModule = 0;
-    if (!readU64(g.mainBase + TOTK_143_SCENE_MODULE, sceneModule))
+    if (!readU64(g.mainBase + g_gameProfile->sceneModule, sceneModule))
         return false;
 
     u64 scene = 0;
@@ -255,7 +297,13 @@ bool refreshExactPlayer(bool validateActor) {
     g.player = displayFromEngine(value);
     g.playerValid = true;
     g.exactPlayer = true;
-    logMessage("Exact 1.4.3 Player actor resolved.");
+    {
+        char message[96]{};
+        std::snprintf(message, sizeof(message),
+                      "Exact %s Player actor resolved.",
+                      g_gameProfile ? g_gameProfile->version : "supported");
+        logMessage(message);
+    }
     return true;
 }
 
@@ -264,13 +312,16 @@ bool readProfileFile(Profile& profile) {
     if (!file)
         return false;
 
+    char bid[32]{};
     unsigned long long offset = 0;
     float x = 0.0f, y = 0.0f, z = 0.0f;
     int score = 0;
-    const int count = std::fscanf(file, "%llx %f %f %f %d", &offset, &x, &y, &z, &score);
+    const int count = std::fscanf(file, "%31s %llx %f %f %f %d",
+                                  bid, &offset, &x, &y, &z, &score);
     std::fclose(file);
 
-    if (count != 5 || offset >= g.heapSize)
+    if (count != 6 || g.buildId.empty() || std::strcmp(bid, g.buildId.c_str()) != 0 ||
+        offset >= g.heapSize)
         return false;
     if (!plausible({x, y, z}))
         return false;
@@ -457,13 +508,13 @@ Result initMemory() {
             dmntchtForceCloseCheatProcess();
             g.attachedByUs = false;
         }
-        fail("TOTK 1.4.3 process not detected.");
+        fail("TOTK process not detected.");
         return 1;
     }
 
     if (g_exactBuild && refreshExactPlayer(true)) {
         g.stage = ScanStage::Ready;
-        g.message = "Exact 1.4.3 Player actor coordinates active.";
+        g.message = "Exact Player actor coordinates active.";
         return 0;
     }
 
@@ -474,12 +525,12 @@ Result initMemory() {
             g.stage = ScanStage::Ready;
             g.message = g.buildIdMatched
                 ? "Exact actor not resolved; using saved heuristic profile."
-                : "Build ID mismatch; using saved heuristic profile.";
+                : "Unsupported build; using saved heuristic profile.";
         }
     } else {
         g.message = g.buildIdMatched
-            ? "Build ID matched, but Player actor was not resolved."
-            : "Target title found, but Build ID did not match 1.4.3.";
+            ? "Supported build detected, but Player actor was not resolved."
+            : "Target title found, but this TOTK build is not in the exact 1.4.x profile table.";
     }
 
     return 0;
@@ -505,11 +556,11 @@ void startAutoScan() {
     if (!g.dmntReady && R_FAILED(initMemory()))
         return;
 
-    // Exact 1.4.3 resolver is always preferred. The fallback scanner should
-    // only run when the exact Player actor cannot currently be resolved.
+    // Exact resolver is preferred for supported 1.4.0-1.4.3 builds.
+    // The fallback scanner remains available for unsupported builds or resolver failures.
     if (g_exactBuild && refreshExactPlayer(true)) {
         g.stage = ScanStage::Ready;
-        g.message = "Exact 1.4.3 Player actor coordinates active.";
+        g.message = "Exact Player actor coordinates active.";
         return;
     }
 
@@ -568,7 +619,7 @@ void resetScan() {
 void refreshPlayer() {
     if (g_exactBuild && refreshExactPlayer(false)) {
         g.stage = ScanStage::Ready;
-        g.message = "Exact 1.4.3 Player actor coordinates active.";
+        g.message = "Exact Player actor coordinates active.";
         return;
     }
 
@@ -640,9 +691,13 @@ void saveProfile() {
     if (!file)
         return;
 
+    if (g.buildId.empty())
+        return;
+
     std::fprintf(
         file,
-        "%llx %.7g %.7g %.7g %d\n",
+        "%s %llx %.7g %.7g %.7g %d\n",
+        g.buildId.c_str(),
         static_cast<unsigned long long>(g.profile.offset),
         static_cast<double>(g.profile.value.x),
         static_cast<double>(g.profile.value.y),
