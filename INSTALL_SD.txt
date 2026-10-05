@@ -1,18 +1,21 @@
-TOTK Explorer v3.4.1
+TOTK Explorer v3.4.2
 
-After downloading the GitHub Actions artifact, extract the `sd` directory to the root of the Switch microSD card.
+После загрузки GitHub Actions artifact распакуйте каталог `sd` в корень microSD.
 
-Expected layout:
+Ожидаемая структура:
 
 sd:/switch/.overlays/TOTK-Explorer-v3.ovl
+sd:/switch/totk_explorer/TOTK-Explorer-v3.nro
 sd:/switch/totk_explorer/points.csv
 
-Then:
-1. Launch TOTK 1.4.0, 1.4.1, 1.4.2 or 1.4.3.
-2. Open Tesla.
-3. Select TOTK Explorer.
-4. Open Player Coordinates. The overlay auto-detects the BID and uses the matching exact Player resolver. The fallback scan is used only if the build is unsupported or exact resolution fails.
+Порядок проверки:
+1. Запустите TOTK 1.4.0, 1.4.1, 1.4.2 или 1.4.3.
+2. Откройте Ultrahand/Tesla.
+3. Выберите TOTK Explorer.
+4. Для отдельного диагностического запуска можно открыть NRO через Homebrew Menu.
+5. Раздел Player Coordinates лениво подключает dmnt:cht только при необходимости.
 
-Runtime diagnostics are written to sd:/switch/totk_explorer/log.txt.
+Логи:
+sd:/switch/totk_explorer/log.txt
 
-The overlay is read-only: it does not write to game memory.
+Overlay read-only: запись в память игры не выполняется.
