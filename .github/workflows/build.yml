@@ -50,7 +50,7 @@ jobs:
           cp -a /tmp/libultrahand/libtesla libs/libultrahand/
           test -s libs/libultrahand/ultrahand.mk
           test -s libs/libultrahand/libtesla/include/tesla.hpp
-          test -s libs/libultrahand/libtesla/include/ini_funcs.hpp
+          test -s libs/libultrahand/libultra/include/ini_funcs.hpp
           test -s libs/libultrahand/libtesla/include/stb_truetype.h
 
       - name: Get dmnt:cht
