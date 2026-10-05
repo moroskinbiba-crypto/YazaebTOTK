@@ -86,14 +86,18 @@ jobs:
           set -eux
           make clean
           make -j2
+          test -s TOTK-Explorer-v3.nro
           test -s TOTK-Explorer-v3.ovl
+          cp TOTK-Explorer-v3.nro /tmp/TOTK-Explorer-v3.nro
           awk -F, 'NF && !/^#/ { if (NF != 6) exit 1; n++ } END { if (n != 152) exit 1 }' data/points.csv
           awk -F, 'NF && !/^#/ && $6 !~ /^(Surface|Sky|Depths)$/ { exit 1 }' data/points.csv
           awk -F, 'NF && $2 == "Kyononis Shrine" { if ($3 != -205 || $4 != 451 || $5 != 35 || $6 != "Surface") exit 1; found=1 } END { if (!found) exit 1 }' data/points.csv
           awk -F, 'NF && $2 == "Ukouh Shrine" { if ($3 != 275 || $4 != -913 || $5 != 1474 || $6 != "Sky") exit 1; found=1 } END { if (!found) exit 1 }' data/points.csv
           test "$(grep -cv '^#' data/points.csv)" -eq 152
+          test "$(tail -c 4 TOTK-Explorer-v3.nro | wc -c)" -eq 4
           printf 'ULTR' > /tmp/ultr_signature
           tail -c 4 TOTK-Explorer-v3.ovl | cmp - /tmp/ultr_signature
+          test "$(stat -c%s TOTK-Explorer-v3.ovl)" -eq "$(( $(stat -c%s TOTK-Explorer-v3.nro) + 4 ))"
 
       - name: Package
         run: |
@@ -102,6 +106,7 @@ jobs:
           mkdir -p artifact/sd/switch/.overlays
           cp TOTK-Explorer-v3.ovl artifact/sd/switch/.overlays/
           mkdir -p artifact/sd/switch/totk_explorer
+          cp TOTK-Explorer-v3.nro artifact/sd/switch/totk_explorer/
           cp data/points.csv artifact/sd/switch/totk_explorer/
           test -s artifact/sd/switch/.overlays/TOTK-Explorer-v3.ovl
           test -s artifact/sd/switch/totk_explorer/points.csv
