@@ -143,97 +143,176 @@ public:
     }
 };
 
-class MapGui final : public tsl::Gui {
-    static constexpr std::size_t GRID = 9;
-    static constexpr std::size_t NEARBY = 8;
-    std::array<tsl::elm::ListItem*, GRID> rows{};
-    tsl::elm::ListItem* layerItem{};
-    tsl::elm::ListItem* buildIdItem{};
-    tsl::elm::ListItem* sourceItem{};
-    tsl::elm::ListItem* posItem{};
-    std::array<tsl::elm::ListItem*, NEARBY> nearbyItems{};
+class MapHudGui final : public tsl::Gui {
+    static constexpr s32 PANEL_W = 304;
+    static constexpr s32 PANEL_H = 348;
+    static constexpr s32 MAP_SIZE = 244;
+    static constexpr s32 MARGIN = 12;
+    static constexpr float RADIUS = 1800.0f;
+
+    const u16 oldBackgroundColor = backgroundColor;
+    const bool oldFullMode = FullMode;
+    const bool oldFooter = deactivateOriginalFooter;
+
+    static tsl::gfx::Color bgColor() { return {1, 1, 2, 11}; }
+    static tsl::gfx::Color panelColor() { return {1, 1, 2, 10}; }
+    static tsl::gfx::Color gridColor() { return {7, 7, 9, 7}; }
+    static tsl::gfx::Color textColor() { return {15, 15, 15, 15}; }
+    static tsl::gfx::Color mutedColor() { return {9, 10, 12, 13}; }
+    static tsl::gfx::Color playerColor() { return {5, 14, 15, 15}; }
+    static tsl::gfx::Color shrineColor() { return {14, 12, 3, 15}; }
+    static tsl::gfx::Color korokColor() { return {6, 13, 6, 15}; }
+    static tsl::gfx::Color lightrootColor() { return {7, 10, 15, 15}; }
+    static tsl::gfx::Color towerColor() { return {13, 6, 13, 15}; }
+    static tsl::gfx::Color genericColor() { return {12, 12, 12, 15}; }
 
     static char marker(const ex::Point& point) {
         if (point.type == "Shrine") return 'S';
         if (point.type == "Korok") return 'K';
         if (point.type == "Lightroot") return 'L';
         if (point.type == "Tower") return 'T';
-        if (point.type == "Cave") return 'C';
-        if (point.type == "Chasm") return 'H';
         return '*';
     }
 
-    static std::string mapRow(const ex::Vec3& player, const std::vector<ex::Point>& points, int row) {
-        std::string cells(GRID, '.');
-        cells[GRID / 2] = '@';
-        constexpr float CELL_SIZE = 250.0f;
-
-        for (const auto& point : points) {
-            const float dx = point.x - player.x;
-            const float dy = point.y - player.y;
-            const int gx = static_cast<int>(std::lround(dx / CELL_SIZE)) + static_cast<int>(GRID / 2);
-            const int gy = static_cast<int>(std::lround(dy / CELL_SIZE)) + static_cast<int>(GRID / 2);
-            if (gx < 0 || gx >= static_cast<int>(GRID) || gy < 0 || gy >= static_cast<int>(GRID) || gy != row)
-                continue;
-            cells[static_cast<std::size_t>(gx)] = marker(point);
-        }
-        return cells;
+    static tsl::gfx::Color markerColor(const ex::Point& point) {
+        if (point.type == "Shrine") return shrineColor();
+        if (point.type == "Korok") return korokColor();
+        if (point.type == "Lightroot") return lightrootColor();
+        if (point.type == "Tower") return towerColor();
+        return genericColor();
     }
 
-    void refresh() {
-        const auto& state = ex::state();
-        layerItem->setValue(state.playerValid ? ex::layerName(state.player) : "Not discovered");
-        posItem->setValue(state.playerValid
-            ? f2(state.player.x) + ", " + f2(state.player.y) + ", " + f2(state.player.z)
-            : "—");
+    static std::string layerText(const ex::Vec3& player) {
+        return ex::layerName(player);
+    }
 
-        if (state.playerValid) {
-            for (std::size_t i = 0; i < GRID; ++i)
-                rows[i]->setValue(mapRow(state.player, state.points, static_cast<int>(i)));
+    static std::string positionText(const ex::Vec3& player) {
+        char buffer[96]{};
+        std::snprintf(buffer, sizeof(buffer), "X %.1f  Y %.1f  H %.1f",
+                      static_cast<double>(player.x),
+                      static_cast<double>(player.y),
+                      static_cast<double>(player.z));
+        return buffer;
+    }
 
-            const auto nearbyPoints = ex::nearby(1000.0f, NEARBY);
-            for (std::size_t i = 0; i < NEARBY; ++i) {
-                if (i < nearbyPoints.size())
-                    nearbyItems[i]->setValue(nearbyPoints[i].type + " · " + nearbyPoints[i].name + "  " + distanceText(state.player, nearbyPoints[i]));
-                else
-                    nearbyItems[i]->setValue("");
-            }
-        } else {
-            for (auto* row : rows) row->setValue("—");
-            for (auto* item : nearbyItems) item->setValue("");
+    static std::string nearestText(const ex::Vec3& player, const std::vector<ex::Point>& points) {
+        if (points.empty())
+            return "No nearby database points";
+
+        const auto& point = points.front();
+        const float dx = point.x - player.x;
+        const float dy = point.y - player.y;
+        const float dz = point.z - player.z;
+        const float distance = std::sqrt(dx * dx + dy * dy + 0.25f * dz * dz);
+
+        char buffer[128]{};
+        std::snprintf(buffer, sizeof(buffer), "Nearest: %s  %.0fm",
+                      point.name.c_str(), static_cast<double>(distance));
+        return buffer;
+    }
+
+    void drawMap(tsl::gfx::Renderer* renderer, const ex::State& state,
+                 const std::vector<ex::Point>& points, s32 x, s32 y) {
+        const s32 centerX = x + MAP_SIZE / 2;
+        const s32 centerY = y + MAP_SIZE / 2;
+
+        renderer->drawRoundRect(x, y, MAP_SIZE, MAP_SIZE, 0.08f, 0.08f, 0.08f, 0.08f,
+                                renderer->a(panelColor()));
+        renderer->drawEmptyRect(x, y, MAP_SIZE, MAP_SIZE, renderer->a(gridColor()));
+
+        constexpr s32 rings[] = {30, 61, 92};
+        for (const s32 radius : rings)
+            renderer->drawCircle(centerX, centerY, radius, false, renderer->a(gridColor()));
+
+        renderer->drawLine(centerX, y + 8, centerX, y + MAP_SIZE - 8, renderer->a(gridColor()));
+        renderer->drawLine(x + 8, centerY, x + MAP_SIZE - 8, centerY, renderer->a(gridColor()));
+
+        const float pixelsPerMeter = static_cast<float>(MAP_SIZE / 2 - 12) / RADIUS;
+
+        for (const auto& point : points) {
+            const float dx = point.x - state.player.x;
+            const float dy = point.y - state.player.y;
+            if (std::fabs(dx) > RADIUS || std::fabs(dy) > RADIUS)
+                continue;
+
+            const s32 px = centerX + static_cast<s32>(std::lround(dx * pixelsPerMeter));
+            const s32 py = centerY - static_cast<s32>(std::lround(dy * pixelsPerMeter));
+
+            renderer->drawCircle(px, py, 4, true, renderer->a(markerColor(point)));
+
+            char label[2] = { marker(point), '\0' };
+            renderer->drawString(label, false, px + 5, py - 6, 11.0f,
+                                  renderer->a(mutedColor()));
         }
+
+        renderer->drawCircle(centerX, centerY, 6, true, renderer->a(playerColor()));
+        renderer->drawCircle(centerX, centerY, 10, false, renderer->a(playerColor()));
     }
 
 public:
+    MapHudGui() {
+        backgroundColor = 0x0000;
+        FullMode = false;
+        deactivateOriginalFooter = true;
+        tsl::hlp::requestForeground(false);
+        tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
+    }
+
+    ~MapHudGui() override {
+        tsl::hlp::requestForeground(true);
+        backgroundColor = oldBackgroundColor;
+        FullMode = oldFullMode;
+        deactivateOriginalFooter = oldFooter;
+    }
+
     tsl::elm::Element* createUI() override {
-        auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Dynamic Map");
-        auto* list = new tsl::elm::List();
+        auto* rootFrame = new tsl::elm::OverlayFrame("", "");
+        auto* drawer = new tsl::elm::CustomDrawer(
+            [](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
+                const auto& state = ex::state();
 
-        layerItem = new tsl::elm::ListItem("Layer");
-        posItem = new tsl::elm::ListItem("Position");
-        list->addItem(layerItem);
-        list->addItem(posItem);
-        list->addItem(new tsl::elm::ListItem("Local map — @ Link  S Shrine  K Korok  L Lightroot  T Tower  C Cave  H Chasm"));
+                const s32 baseX = 8;
+                const s32 baseY = 180;
+                const s32 mapX = baseX + MARGIN + 26;
+                const s32 mapY = baseY + 74;
 
-        for (std::size_t i = 0; i < GRID; ++i) {
-            rows[i] = new tsl::elm::ListItem("Map " + std::to_string(i + 1));
-            list->addItem(rows[i]);
-        }
+                renderer->drawRoundRect(baseX, baseY, PANEL_W, PANEL_H, 0.05f, 0.05f, 0.05f, 0.05f,
+                                        renderer->a(bgColor()));
 
-        list->addItem(new tsl::elm::ListItem("Nearby"));
-        for (std::size_t i = 0; i < NEARBY; ++i) {
-            nearbyItems[i] = new tsl::elm::ListItem("Point " + std::to_string(i + 1));
-            list->addItem(nearbyItems[i]);
-        }
+                renderer->drawString("TOTK EXPLORER", false, baseX + MARGIN, baseY + 16, 18.0f,
+                                     renderer->a(textColor()));
 
-        frame->setContent(list);
-        refresh();
-        return frame;
+                if (!state.dmntReady || !state.playerValid) {
+                    renderer->drawString(state.dmntReady ? "Waiting for Player coordinates..." : "Game process unavailable",
+                                         false, baseX + MARGIN, baseY + 50, 16.0f,
+                                         renderer->a(mutedColor()));
+                    return;
+                }
+
+                renderer->drawString(layerText(state.player).c_str(), false,
+                                     baseX + PANEL_W - 130, baseY + 18, 14.0f,
+                                     renderer->a(mutedColor()));
+
+                renderer->drawString(positionText(state.player).c_str(), false,
+                                     baseX + MARGIN, baseY + 48, 13.0f,
+                                     renderer->a(mutedColor()));
+
+                const auto points = ex::nearby(RADIUS, 32);
+                drawMap(renderer, state, points, mapX, mapY);
+
+                renderer->drawString(nearestText(state.player, points).c_str(), false,
+                                     baseX + MARGIN, baseY + PANEL_H - 40, 12.0f,
+                                     renderer->a(mutedColor()));
+                renderer->drawString("B: close", false, baseX + PANEL_W - 62,
+                                     baseY + PANEL_H - 40, 11.0f,
+                                     renderer->a(mutedColor()));
+            });
+        rootFrame->setContent(drawer);
+        return rootFrame;
     }
 
     void update() override {
         ex::tick();
-        refresh();
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
@@ -394,10 +473,10 @@ public:
         });
         list->addItem(calibration);
 
-        auto* map = new tsl::elm::ListItem("Dynamic Map");
+        auto* map = new tsl::elm::ListItem("Map HUD");
         map->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
-                tsl::changeTo<MapGui>();
+                tsl::changeTo<MapHudGui>();
                 return true;
             }
             return false;
