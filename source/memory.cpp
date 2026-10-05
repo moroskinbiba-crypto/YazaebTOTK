@@ -50,6 +50,12 @@ const char* profilePath() {
     return "sdmc:/switch/totk_explorer/profile.txt";
 }
 
+Vec3 displayFromEngine(const Vec3& raw) {
+    // TOTK actor memory stores position as X, vertical Y, world Z.
+    // The overlay/database convention is game X, game Y, height Z.
+    return {raw.x, raw.z, raw.y};
+}
+
 bool finiteCoord(float v) {
     return std::isfinite(v);
 }
@@ -194,7 +200,7 @@ bool resolveExactPlayerActor(u64& actorOut) {
     u32 count = 0;
     if (!readMem(actorManager + RESIDENT_COUNT, &count, sizeof(count)))
         return false;
-    if (count == 0 || count > 512)
+    if (count == 0 || count > 256)
         return false;
 
     u64 list = 0;
@@ -229,7 +235,7 @@ bool refreshExactPlayer(bool validateActor) {
         if (!validateActor || actorNameIs(g.playerActor, "Player")) {
             Vec3 value{};
             if (readVec3(g.playerActor + ACTOR_POSITION, value)) {
-                g.player = value;
+                g.player = displayFromEngine(value);
                 g.playerValid = true;
                 g.exactPlayer = true;
                 return true;
@@ -246,7 +252,7 @@ bool refreshExactPlayer(bool validateActor) {
         return false;
 
     g.playerActor = actor;
-    g.player = value;
+    g.player = displayFromEngine(value);
     g.playerValid = true;
     g.exactPlayer = true;
     logMessage("Exact 1.4.3 Player actor resolved.");
@@ -407,7 +413,7 @@ void selectBest() {
         });
 
     g.profile = Profile{true, best->heapOffset, best->value, best->score};
-    g.player = best->value;
+    g.player = displayFromEngine(best->value);
     g.playerValid = true;
     g.exactPlayer = false;
     g.playerActor = 0;
@@ -577,7 +583,7 @@ void refreshPlayer() {
         return;
     }
 
-    g.player = value;
+    g.player = displayFromEngine(value);
     g.playerValid = true;
     g.exactPlayer = false;
     g.playerActor = 0;
@@ -665,9 +671,11 @@ const char* stageText(ScanStage stage) {
 }
 
 std::string layerName(const Vec3& p) {
-    if (p.y > 500.0f) return "Sky";
-    if (p.y < -100.0f) return "Depths";
-    return "Surface";
+    // Height is the third value in the overlay/database convention.
+    // Surface and Sky cannot be reliably separated by altitude alone.
+    if (p.z < -100.0f)
+        return "Depths";
+    return "Surface/Sky";
 }
 
 } // namespace ex
