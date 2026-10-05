@@ -619,7 +619,7 @@ void tick() {
 
     if (g.stage == ScanStage::Scanning)
         scanChunk();
-    else if (g.stage == ScanStage::Ready && g.playerValid)
+    else if (g.stage == ScanStage::Ready)
         refreshPlayer();
 }
 
