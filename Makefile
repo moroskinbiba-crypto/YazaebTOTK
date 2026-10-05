@@ -89,7 +89,9 @@ all: $(OUTPUT).ovl
 
 $(OUTPUT).ovl: $(OUTPUT).elf $(OUTPUT).nacp
 	@elf2nro $< $@ $(NROFLAGS)
+	@printf 'ULTR' >> $@
 	@echo "built ... $(notdir $(OUTPUT).ovl)"
+	@echo "Ultrahand signature (ULTR) appended"
 
 $(OUTPUT).elf: $(OFILES)
 
