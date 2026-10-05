@@ -14,7 +14,7 @@ inline constexpr const char* GAME_VERSION = "1.4.3";
 inline constexpr const char* VERSION = "3.3.1";
 
 struct Vec3 { float x{}, y{}, z{}; };
-struct Point { std::string type, name; float x{}, y{}, z{}; };
+struct Point { std::string type, name, layer; float x{}, y{}, z{}; };
 struct Candidate { u64 address{}, heapOffset{}; Vec3 value{}; int score{}; };
 struct Profile { bool valid{}; u64 offset{}; Vec3 value{}; int score{}; };
 
@@ -43,6 +43,7 @@ struct State {
     Profile profile{};
     std::vector<Candidate> candidatesList{};
     std::vector<Point> points{};
+    std::size_t pointsRejected{};
 };
 
 State& state();
@@ -55,6 +56,7 @@ void captureJump();
 void resetScan();
 void refreshPlayer();
 void loadPoints();
+void logMessage(const char* message);
 void saveProfile();
 void loadProfile();
 const char* stageText(ScanStage stage);
