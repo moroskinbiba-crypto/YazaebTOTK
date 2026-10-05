@@ -1,4 +1,4 @@
-TOTK Explorer v3.4.2
+TOTK Explorer v3.4.3
 
 После загрузки GitHub Actions artifact распакуйте каталог `sd` в корень microSD.
 
