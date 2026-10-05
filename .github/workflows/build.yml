@@ -84,6 +84,7 @@ jobs:
       - name: Build
         run: |
           set -eux
+          python3 tools/verify_repo.py
           make clean
           make -j2
           test -s TOTK-Explorer-v3.nro
@@ -98,6 +99,8 @@ jobs:
           printf 'ULTR' > /tmp/ultr_signature
           tail -c 4 TOTK-Explorer-v3.ovl | cmp - /tmp/ultr_signature
           test "$(stat -c%s TOTK-Explorer-v3.ovl)" -eq "$(( $(stat -c%s TOTK-Explorer-v3.nro) + 4 ))"
+          cmp -n "$(stat -c%s TOTK-Explorer-v3.nro)" TOTK-Explorer-v3.nro TOTK-Explorer-v3.ovl
+          strings -a TOTK-Explorer-v3.nro | grep -F "TOTK Explorer" >/dev/null
 
       - name: Package
         run: |
@@ -110,6 +113,8 @@ jobs:
           cp data/points.csv artifact/sd/switch/totk_explorer/
           test -s artifact/sd/switch/.overlays/TOTK-Explorer-v3.ovl
           test -s artifact/sd/switch/totk_explorer/points.csv
+          test -s artifact/sd/switch/totk_explorer/TOTK-Explorer-v3.nro
+          test -s artifact/sd/switch/.overlays/TOTK-Explorer-v3.ovl
 
       - name: Upload
         uses: actions/upload-artifact@v7
