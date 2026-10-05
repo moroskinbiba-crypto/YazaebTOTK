@@ -79,6 +79,8 @@ verify-layout:
 	@test -f $(TOPDIR)/source/ui.cpp
 	@test -f $(TOPDIR)/libs/libdmntcht.a
 	@test -f $(TOPDIR)/libs/libultrahand/ultrahand.mk
+	@test -d $(TOPDIR)/libs/libultrahand/common
+	@test -d $(TOPDIR)/libs/libultrahand/libultra/source
 	@test -f $(TOPDIR)/libs/libultrahand/libtesla/include/tesla.hpp
 
 clean:
