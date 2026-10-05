@@ -112,6 +112,7 @@ bool findTargetProcess() {
         return false;
 
     const u64 previousPid = g.processId;
+    const bool previousExactBuild = g_exactBuild;
     g.processId = g_meta.process_id;
     if (previousPid != 0 && previousPid != g.processId) {
         g.playerActor = 0;
@@ -124,9 +125,11 @@ bool findTargetProcess() {
     g.heapSize = g_meta.heap_extents.size;
     g.buildIdMatched = buildIdMatches143();
     g_exactBuild = g.buildIdMatched;
-    logMessage(g.buildIdMatched
-        ? "Target process found; Build ID matched 1.4.3."
-        : "Target process found; Build ID mismatch.");
+    if (previousPid != g.processId || previousExactBuild != g_exactBuild) {
+        logMessage(g.buildIdMatched
+            ? "Target process found; Build ID matched 1.4.3."
+            : "Target process found; Build ID mismatch.");
+    }
     return true;
 }
 
