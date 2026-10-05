@@ -1,21 +1,19 @@
-TOTK Explorer v3.1.0 reviewed build
+TOTK Explorer v3.4.2 audit
 
-Static review completed against the provided code review.
+Проверено:
+- сборка использует libultrahand;
+- libultrahand pinned на commit, совпадающий с Tetris Overlay;
+- NACP передаётся в elf2nro;
+- итоговый .ovl содержит ULTR в последних 4 байтах;
+- .ovl начинается с точной копии собранного .nro;
+- CI проверяет 152 строки points.csv и допустимые layer значения;
+- dmnt:cht инициализируется лениво после GUI;
+- exitServices() освобождает dmnt:cht;
+- exact resolver защищён проверкой Title ID и BID;
+- старые actor/profile адреса сбрасываются при смене процесса;
+- NRO собирается отдельно для runtime-диагностики.
 
-Fixed:
-- GitHub Actions checks data/points.csv.
-- GitHub Actions uploads hidden .overlays contents.
-- Workflow supports main/master and workflow_dispatch.
-- Correct .github/workflows/build.yml path is used.
-- libtesla pinned to v1.3.3.
-- Candidate memory capped at 4096 and reservoir sampled.
-- Duplicate moving vector removed.
-- Live screens update ListItem values in update().
-- Version numbers unified to 3.1.0.
-- SD install path documented consistently.
-- Final .ovl is explicitly checked before artifact upload.
-
-Not verified in this environment:
-- Native devkitA64 compilation/runtime on a physical Switch.
-- Correctness of the TOTK coordinate candidate chosen by heuristic memory scan.
-- Completeness/correctness of the external TOTK point database.
+Не проверяется CI:
+- реальный runtime на физической Switch;
+- корректность конкретных координатных offsets вне перечисленных builds;
+- фактическое отображение overlay в конкретной установленной версии Ultrahand/nx-ovlloader.
