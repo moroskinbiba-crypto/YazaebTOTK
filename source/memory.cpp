@@ -148,6 +148,8 @@ bool findTargetProcess() {
         return false;
 
     const u64 previousPid = g.processId;
+    const u64 previousMainBase = g.mainBase;
+    const u64 previousHeapBase = g.heapBase;
     const GameProfile* previousGameProfile = g_gameProfile;
     const bool previousExactBuild = g_exactBuild;
     g.processId = g_meta.process_id;
@@ -167,14 +169,16 @@ bool findTargetProcess() {
 
     const bool profileChanged =
         previousPid != g.processId ||
+        previousMainBase != g.mainBase ||
+        previousHeapBase != g.heapBase ||
         previousExactBuild != g_exactBuild ||
         previousGameProfile != g_gameProfile;
 
     if (profileChanged) {
         g.playerActor = 0;
         g.playerValid = false;
-        // A heuristic heap offset is build-specific. Never carry it across
-        // process/version changes, otherwise a fallback could read stale memory.
+        // Actor addresses and heuristic heap offsets are process-specific. Never carry
+        // them across process/base changes, otherwise a fallback could read stale memory.
         g.profile = Profile{};
         if (g_gameProfile) {
             char message[96]{};
