@@ -11,7 +11,7 @@ inline constexpr u64 TITLE_ID = 0x0100F2C0115B6000ULL;
 inline constexpr const char* TITLE_TEXT = "0100F2C0115B6000";
 inline constexpr const char* BID_TEXT = "auto-detect (1.4.0-1.4.3)";
 inline constexpr const char* GAME_VERSION = "1.4.0-1.4.3";
-inline constexpr const char* VERSION = "3.3.2";
+inline constexpr const char* VERSION = "3.4.1";
 
 struct Vec3 { float x{}, y{}, z{}; };
 struct Point { std::string type, name, layer; float x{}, y{}, z{}; };
