@@ -19,3 +19,5 @@ sd:/switch/totk_explorer/points.csv
 sd:/switch/totk_explorer/log.txt
 
 Overlay read-only: запись в память игры не выполняется.
+
+Open `Map HUD` from the overlay menu to show the minimap directly over the game. Press B to close the HUD.
