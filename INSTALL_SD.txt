@@ -1,4 +1,4 @@
-TOTK Explorer v3.3.2
+TOTK Explorer v3.4.0
 
 After downloading the GitHub Actions artifact, extract the `sd` directory to the root of the Switch microSD card.
 
@@ -8,10 +8,10 @@ sd:/switch/.overlays/TOTK-Explorer-v3.ovl
 sd:/switch/totk_explorer/points.csv
 
 Then:
-1. Launch TOTK 1.4.3 (BID 277178B7DBA1B6D4).
+1. Launch TOTK 1.4.0, 1.4.1, 1.4.2 or 1.4.3.
 2. Open Tesla.
 3. Select TOTK Explorer.
-4. Open Player Coordinates. Exact 1.4.3 Player actor resolution runs first; the fallback scan is used only if exact resolution fails.
+4. Open Player Coordinates. The overlay auto-detects the BID and uses the matching exact Player resolver. The fallback scan is used only if the build is unsupported or exact resolution fails.
 
 Runtime diagnostics are written to sd:/switch/totk_explorer/log.txt.
 
