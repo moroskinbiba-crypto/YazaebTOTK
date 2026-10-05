@@ -1,4 +1,4 @@
-# TOTK Explorer v3.3.1 — build pipeline
+# TOTK Explorer v3.3.2 — build pipeline
 
 Tesla overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -25,7 +25,7 @@ Target build:
 
 Эвристический сканер сохранён как fallback. Он ищет тройки `float` в памяти процесса и использует движение игрока/изменение высоты для отбора кандидата.
 
-В `data/points.csv` сейчас находится 152 святилища. Формат: `Type,Name,X,Y,Z,Layer`. Источник с колонками `X,Y,Height` нормализован в игровой порядок `X,Y,Z`, где игровая `Y` — высота.
+В `data/points.csv` сейчас находится 152 святилища. Формат: `Type,Name,X,Y,Z,Layer`. Источник с колонками `X,Y,Height` нормализован в игровой порядок `X,Y,Z`, где игровая `Z` — высота. Сырой actor position из памяти TOTK имеет порядок `X,Height,Z` и перед выводом переставляется в `X,Y,Z`.
 
 Список Nearby использует консервативную фильтрацию: в Depths остаются Depths-точки, а вне Depths Surface/Sky не смешиваются по предположению о высоте. Это избегает ложного определения Sky на высоких поверхностях. Diagnostics показывает адрес Player actor и количество отброшенных строк CSV.
 
