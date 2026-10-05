@@ -1,6 +1,6 @@
 # TOTK Explorer point database
 # Format: Type,Name,X,Y,Z,Layer
-# Coordinates use the game's X,Y,Height order as X,Y,Z.
+# Coordinates use game X,Y,Height order; Z is height.
 Shrine,Ukouh Shrine,275,-913,1474,Sky
 Shrine,Gutanbac Shrine,709,-1383,1599,Sky
 Shrine,In-isa Shrine,26,-1504,1423,Sky
@@ -40,6 +40,7 @@ Shrine,Sepapa Shrine,222,1085,42,Surface
 Shrine,Susuyai Shrine,-785,-434,32,Surface
 Shrine,Kyokugon Shrine,-709,-1551,20,Surface
 Shrine,Jiosin Shrine,-241,-371,41,Surface
+Shrine,Tenmaten Shrine,-595,1551,-1,Surface
 Shrine,Makurukis Shrine,-2847,630,248,Surface
 Shrine,Sonapan Shrine,-1922,-359,243,Surface
 Shrine,Runakit Shrine,-2530,1170,192,Surface
