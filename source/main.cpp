@@ -10,8 +10,9 @@ std::unique_ptr<tsl::Gui> createMainGui();
 class TotkExplorerOverlay final : public tsl::Overlay {
 public:
     void initServices() override {
+        // Keep startup lightweight: dmnt:cht is initialized lazily from the GUI
+        // when the user actually requests player-coordinate access.
         ex::loadPoints();
-        (void)ex::initMemory();
     }
 
     void exitServices() override {
