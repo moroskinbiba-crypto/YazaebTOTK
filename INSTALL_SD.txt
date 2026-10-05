@@ -11,6 +11,8 @@ Then:
 1. Launch TOTK 1.4.3 (BID 277178B7DBA1B6D4).
 2. Open Tesla.
 3. Select TOTK Explorer.
-4. Use Auto Discovery if no saved coordinate profile is present.
+4. Open Player Coordinates. Exact 1.4.3 Player actor resolution runs first; the fallback scan is used only if exact resolution fails.
+
+Runtime diagnostics are written to sd:/switch/totk_explorer/log.txt.
 
 The overlay is read-only: it does not write to game memory.
