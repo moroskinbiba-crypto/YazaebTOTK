@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Verify toolchain
         run: |
@@ -79,8 +79,11 @@ jobs:
           make clean
           make -j2
           test -s TOTK-Explorer-v3.ovl
-          awk -F, '!/^#/ { if (NF != 6) exit 1; n++ } END { if (n < 1) exit 1 }' data/points.csv
-          awk -F, '!/^#/ && $6 !~ /^(Surface|Sky|Depths)$/ { exit 1 }' data/points.csv
+          awk -F, 'NF && !/^#/ { if (NF != 6) exit 1; n++ } END { if (n != 152) exit 1 }' data/points.csv
+          awk -F, 'NF && !/^#/ && $6 !~ /^(Surface|Sky|Depths)$/ { exit 1 }' data/points.csv
+          awk -F, 'NF && $2 == "Kyononis Shrine" { if ($3 != -205 || $4 != 451 || $5 != 35 || $6 != "Surface") exit 1; found=1 } END { if (!found) exit 1 }' data/points.csv
+          awk -F, 'NF && $2 == "Ukouh Shrine" { if ($3 != 275 || $4 != -913 || $5 != 1474 || $6 != "Sky") exit 1; found=1 } END { if (!found) exit 1 }' data/points.csv
+          test "$(grep -cv '^#' data/points.csv)" -eq 152
           printf 'ULTR' > /tmp/ultr_signature
           tail -c 4 TOTK-Explorer-v3.ovl | cmp - /tmp/ultr_signature
 
@@ -96,7 +99,7 @@ jobs:
           test -s artifact/sd/switch/totk_explorer/points.csv
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: TOTK-Explorer-v3
           path: artifact
