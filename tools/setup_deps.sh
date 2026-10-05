@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 LIBULTRAHAND_REPO="https://github.com/ppkantorski/libultrahand.git"
-LIBULTRAHAND_COMMIT="856ddbddd796fc4a59ad2e0bf939c5963e6f9dd2"
+LIBULTRAHAND_COMMIT="1b7a64a4d73489c870f3fb9caa9927e9a2347478"
 DMNT_REPO="https://github.com/Insektaure/Shiny-Stash-Live-Map.git"
 DMNT_COMMIT="548896d0cc3b5fd531bd970f0708ecda13338492"
 
