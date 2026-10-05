@@ -76,6 +76,10 @@ jobs:
           test -f source/map.cpp
           test -f source/ui.cpp
           test -f source/log.cpp
+          test -f libs/libultrahand/ultrahand.mk
+          test -d libs/libultrahand/common
+          test -d libs/libultrahand/libultra/source
+          test -f libs/libultrahand/libtesla/include/tesla.hpp
 
       - name: Build
         run: |
