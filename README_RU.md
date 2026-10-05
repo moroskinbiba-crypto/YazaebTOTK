@@ -1,4 +1,4 @@
-# TOTK Explorer v3.4.0 — multi-version Player resolver
+# TOTK Explorer v3.4.1 — multi-version Player resolver
 
 Tesla overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -35,6 +35,8 @@ Diagnostics показывает фактические Version/BID, опред�
 
 Диагностика дополнительно записывается в:
 `sd:/switch/totk_explorer/log.txt`.
+
+После повторного аудита дополнительно защищено переключение между процессами: старые actor/heap-профили сбрасываются при изменении PID или базовых адресов.
 
 Физическая проверка на Switch всё равно остаётся обязательной: CI подтверждает сборку, упаковку и формат данных, но не заменяет тестирование на консоли.
 
