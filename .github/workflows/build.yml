@@ -71,6 +71,7 @@ jobs:
           test -f source/memory.cpp
           test -f source/map.cpp
           test -f source/ui.cpp
+          test -f source/log.cpp
 
       - name: Build
         run: |
@@ -78,6 +79,8 @@ jobs:
           make clean
           make -j2
           test -s TOTK-Explorer-v3.ovl
+          awk -F, '!/^#/ { if (NF != 6) exit 1; n++ } END { if (n < 1) exit 1 }' data/points.csv
+          awk -F, '!/^#/ && $6 !~ /^(Surface|Sky|Depths)$/ { exit 1 }' data/points.csv
           printf 'ULTR' > /tmp/ultr_signature
           tail -c 4 TOTK-Explorer-v3.ovl | cmp - /tmp/ultr_signature
 
