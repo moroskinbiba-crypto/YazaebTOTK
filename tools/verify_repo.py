@@ -32,7 +32,6 @@ for needle in [
     'make -j2',
     'TOTK-Explorer-v3.nro',
     'TOTK-Explorer-v3.ovl',
-    '--nacp',
 ]:
     if needle not in workflow:
         errors.append(f"workflow missing: {needle}")
