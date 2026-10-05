@@ -9,7 +9,7 @@ void logMessage(const char* message) {
     if (!file)
         return;
 
-    std::fprintf(file, "[TOTK Explorer] %s\\n", message ? message : "");
+    std::fprintf(file, "[TOTK Explorer] %s\n", message ? message : "");
     std::fclose(file);
 }
 
