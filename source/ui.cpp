@@ -41,55 +41,64 @@ std::string hexText(u64 value) {
     return buffer;
 }
 
-class ScanGui final : public tsl::Gui {
+class CalibrationGui final : public tsl::Gui {
     tsl::elm::ListItem* stageItem{};
-    tsl::elm::ListItem* statusItem{};
     tsl::elm::ListItem* progressItem{};
     tsl::elm::ListItem* candidatesItem{};
-    tsl::elm::ListItem* coordsItem{};
-    tsl::elm::ListItem* profileItem{};
+    tsl::elm::ListItem* instructionItem{};
 
     void refresh() {
         const auto& state = ex::state();
         stageItem->setValue(ex::stageText(state.stage));
-        statusItem->setValue(state.message);
 
         if (state.heapSize > 0) {
             const double pct = 100.0 * static_cast<double>(state.scanned) / static_cast<double>(state.heapSize);
             char progress[48]{};
-            std::snprintf(progress, sizeof(progress), "%.1f%%", pct);
+            std::snprintf(progress, sizeof(progress), "%.0f%%", pct);
             progressItem->setValue(progress);
         } else {
-            progressItem->setValue("0.0%");
+            progressItem->setValue("0%");
         }
 
         candidatesItem->setValue(std::to_string(state.candidates));
-        coordsItem->setValue(state.playerValid
-            ? f2(state.player.x) + " / " + f2(state.player.y) + " / " + f2(state.player.z)
-            : "—");
-        profileItem->setValue(state.profile.valid ? "yes" : "no");
+
+        switch (state.stage) {
+            case ex::ScanStage::Scanning:
+                instructionItem->setValue("Scanning memory...");
+                break;
+            case ex::ScanStage::WaitMove:
+                instructionItem->setValue("Walk 5-10 m, reopen overlay if needed, press X");
+                break;
+            case ex::ScanStage::WaitJump:
+                instructionItem->setValue("Jump / change elevation, press X");
+                break;
+            case ex::ScanStage::Ready:
+                instructionItem->setValue("Calibration complete");
+                break;
+            case ex::ScanStage::Failed:
+                instructionItem->setValue(state.message);
+                break;
+            default:
+                instructionItem->setValue("Press A to start calibration");
+                break;
+        }
     }
 
 public:
     tsl::elm::Element* createUI() override {
-        auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Auto Discovery");
+        auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Calibration");
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::ListItem("Exact resolver for supported 1.4.x builds; fallback scan if needed"));
-        stageItem = new tsl::elm::ListItem("Stage");
-        statusItem = new tsl::elm::ListItem("Status");
-        progressItem = new tsl::elm::ListItem("Scan progress");
+        stageItem = new tsl::elm::ListItem("Step");
+        progressItem = new tsl::elm::ListItem("Progress");
         candidatesItem = new tsl::elm::ListItem("Candidates");
-        coordsItem = new tsl::elm::ListItem("X / Y / Z");
-        profileItem = new tsl::elm::ListItem("Saved profile");
+        instructionItem = new tsl::elm::ListItem("Instruction");
         list->addItem(stageItem);
-        list->addItem(statusItem);
         list->addItem(progressItem);
         list->addItem(candidatesItem);
-        list->addItem(coordsItem);
-        list->addItem(profileItem);
+        list->addItem(instructionItem);
 
-        auto* start = new tsl::elm::ListItem("Resolve Coordinates");
+        auto* start = new tsl::elm::ListItem("Start / Restart");
         start->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
                 ex::startAutoScan();
@@ -99,10 +108,8 @@ public:
         });
         list->addItem(start);
 
-        list->addItem(new tsl::elm::ListItem("Calibration"));
-        list->addItem(new tsl::elm::ListItem("Fallback scan", "Used only if exact resolver fails"));
-        list->addItem(new tsl::elm::ListItem("Move", "If fallback scan is active"));
-        list->addItem(new tsl::elm::ListItem("Jump", "If fallback scan is active"));
+        list->addItem(new tsl::elm::ListItem("X = capture step"));
+        list->addItem(new tsl::elm::ListItem("Y = reset"));
 
         frame->setContent(list);
         refresh();
@@ -284,7 +291,7 @@ public:
     }
 };
 
-class InfoGui final : public tsl::Gui {
+class DiagnosticsGui final : public tsl::Gui {
     tsl::elm::ListItem* dmntItem{};
     tsl::elm::ListItem* pidItem{};
     tsl::elm::ListItem* heapItem{};
@@ -367,7 +374,6 @@ public:
 } // namespace
 
 class MainGui final : public tsl::Gui {
-    tsl::elm::ListItem* memoryItem{};
     tsl::elm::ListItem* coordsItem{};
 
 public:
@@ -375,22 +381,18 @@ public:
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", ex::VERSION);
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::ListItem("Tears of the Kingdom 1.4.0-1.4.3"));
-        list->addItem(new tsl::elm::ListItem("BID", "auto-detect"));
-        memoryItem = new tsl::elm::ListItem("Memory");
-        coordsItem = new tsl::elm::ListItem("Coordinates");
-        list->addItem(memoryItem);
+        coordsItem = new tsl::elm::ListItem("Player Coordinates");
         list->addItem(coordsItem);
 
-        auto* scan = new tsl::elm::ListItem("Player Coordinates");
-        scan->setClickListener([](u64 keys) {
+        auto* calibration = new tsl::elm::ListItem("Calibration");
+        calibration->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
-                tsl::changeTo<ScanGui>();
+                tsl::changeTo<CalibrationGui>();
                 return true;
             }
             return false;
         });
-        list->addItem(scan);
+        list->addItem(calibration);
 
         auto* map = new tsl::elm::ListItem("Dynamic Map");
         map->setClickListener([](u64 keys) {
@@ -412,10 +414,10 @@ public:
         });
         list->addItem(nearby);
 
-        auto* info = new tsl::elm::ListItem("Build / Diagnostics");
+        auto* info = new tsl::elm::ListItem("Diagnostics");
         info->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
-                tsl::changeTo<InfoGui>();
+                tsl::changeTo<DiagnosticsGui>();
                 return true;
             }
             return false;
@@ -429,10 +431,9 @@ public:
     void update() override {
         ex::tick();
         const auto& state = ex::state();
-        memoryItem->setValue(state.dmntReady ? "dmnt:cht connected" : "not connected");
         coordsItem->setValue(state.playerValid
             ? f2(state.player.x) + " / " + f2(state.player.y) + " / " + f2(state.player.z)
-            : "Not discovered");
+            : "Not detected");
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
