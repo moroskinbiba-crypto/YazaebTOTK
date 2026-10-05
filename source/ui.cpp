@@ -75,7 +75,7 @@ public:
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Auto Discovery");
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::ListItem("Exact Player resolver first; fallback scan only if needed"));
+        list->addItem(new tsl::elm::ListItem("Exact resolver for supported 1.4.x builds; fallback scan if needed"));
         stageItem = new tsl::elm::ListItem("Stage");
         statusItem = new tsl::elm::ListItem("Status");
         progressItem = new tsl::elm::ListItem("Scan progress");
@@ -290,6 +290,7 @@ class InfoGui final : public tsl::Gui {
     tsl::elm::ListItem* heapItem{};
     tsl::elm::ListItem* pointsItem{};
     tsl::elm::ListItem* layerItem{};
+    tsl::elm::ListItem* versionItem{};
     tsl::elm::ListItem* buildIdItem{};
     tsl::elm::ListItem* sourceItem{};
     tsl::elm::ListItem* actorItem{};
@@ -302,8 +303,9 @@ class InfoGui final : public tsl::Gui {
         heapItem->setValue(std::to_string(static_cast<unsigned long long>(state.heapSize)));
         pointsItem->setValue(std::to_string(state.points.size()));
         layerItem->setValue(state.playerValid ? ex::layerName(state.player) : "—");
-        buildIdItem->setValue(state.buildIdMatched ? "yes" : "no");
-        sourceItem->setValue(state.exactPlayer ? "1.4.3 Player actor" : (state.playerValid ? "heuristic profile" : "none"));
+        versionItem->setValue(state.gameVersion);
+        buildIdItem->setValue(state.buildId + (state.buildIdMatched ? " (supported)" : " (unsupported)"));
+        sourceItem->setValue(state.exactPlayer ? "exact Player actor" : (state.playerValid ? "heuristic profile" : "none"));
         actorItem->setValue(state.playerActor ? hexText(state.playerActor) : "—");
         rejectedItem->setValue(std::to_string(state.pointsRejected));
     }
@@ -315,8 +317,10 @@ public:
 
         list->addItem(new tsl::elm::ListItem("Target"));
         list->addItem(new tsl::elm::ListItem("Title ID", ex::TITLE_TEXT));
-        list->addItem(new tsl::elm::ListItem("Version", ex::GAME_VERSION));
-        list->addItem(new tsl::elm::ListItem("Build ID", ex::BID_TEXT));
+        versionItem = new tsl::elm::ListItem("Version");
+        buildIdItem = new tsl::elm::ListItem("Build ID");
+        list->addItem(versionItem);
+        list->addItem(buildIdItem);
 
         list->addItem(new tsl::elm::ListItem("Runtime"));
         dmntItem = new tsl::elm::ListItem("dmnt:cht");
@@ -331,7 +335,7 @@ public:
         list->addItem(heapItem);
         list->addItem(pointsItem);
         list->addItem(layerItem);
-        list->addItem(buildIdItem);
+        list->addItem(new tsl::elm::ListItem("Supported exact builds", ex::GAME_VERSION));
         list->addItem(sourceItem);
         actorItem = new tsl::elm::ListItem("Player actor");
         rejectedItem = new tsl::elm::ListItem("CSV rejected rows");
@@ -372,8 +376,8 @@ public:
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", ex::VERSION);
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::ListItem("Tears of the Kingdom 1.4.3"));
-        list->addItem(new tsl::elm::ListItem("BID", ex::BID_TEXT));
+        list->addItem(new tsl::elm::ListItem("Tears of the Kingdom 1.4.0-1.4.3"));
+        list->addItem(new tsl::elm::ListItem("BID", "auto-detect"));
         memoryItem = new tsl::elm::ListItem("Memory");
         coordsItem = new tsl::elm::ListItem("Coordinates");
         list->addItem(memoryItem);
