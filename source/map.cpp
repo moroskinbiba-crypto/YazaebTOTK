@@ -16,7 +16,7 @@ bool sameLayer(const Point& point, const Vec3& player) {
 
     // Depths can be separated safely by height. Surface and Sky overlap in
     // altitude, so keep both available outside the Depths instead of guessing.
-    if (player.y < -100.0f)
+    if (player.z < -100.0f)
         return point.layer == "Depths";
 
     return point.layer != "Depths";
@@ -83,7 +83,7 @@ std::vector<Point> nearby(float radius, std::size_t maxCount) {
         const float dx = point.x - state().player.x;
         const float dy = point.y - state().player.y;
         const float dz = point.z - state().player.z;
-        const float d2 = dx * dx + dz * dz + 0.25f * dy * dy;
+        const float d2 = dx * dx + dy * dy + 0.25f * dz * dz;
 
         if (d2 <= radiusSquared)
             distances.push_back({std::sqrt(d2), point});
