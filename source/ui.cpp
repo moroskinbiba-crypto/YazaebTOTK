@@ -26,6 +26,21 @@ std::string distanceText(const ex::Vec3& player, const ex::Point& point) {
     return buffer;
 }
 
+std::string deltaText(const ex::Vec3& player, const ex::Point& point) {
+    char buffer[96]{};
+    std::snprintf(buffer, sizeof(buffer), "dX %.0f  dY %.0f  dZ %.0f",
+                  static_cast<double>(point.x - player.x),
+                  static_cast<double>(point.y - player.y),
+                  static_cast<double>(point.z - player.z));
+    return buffer;
+}
+
+std::string hexText(u64 value) {
+    char buffer[32]{};
+    std::snprintf(buffer, sizeof(buffer), "0x%llX", static_cast<unsigned long long>(value));
+    return buffer;
+}
+
 class ScanGui final : public tsl::Gui {
     tsl::elm::ListItem* stageItem{};
     tsl::elm::ListItem* statusItem{};
@@ -60,7 +75,7 @@ public:
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Auto Discovery");
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::ListItem("Automatic coordinate detection"));
+        list->addItem(new tsl::elm::ListItem("Exact Player resolver first; fallback scan only if needed"));
         stageItem = new tsl::elm::ListItem("Stage");
         statusItem = new tsl::elm::ListItem("Status");
         progressItem = new tsl::elm::ListItem("Scan progress");
@@ -232,9 +247,9 @@ class NearbyGui final : public tsl::Gui {
         const auto points = ex::nearby(2000.0f, MAX);
         for (std::size_t i = 0; i < MAX; ++i) {
             if (!state.playerValid) {
-                items[i]->setValue(i == 0 ? "Run Auto Discovery first" : "");
+                items[i]->setValue(i == 0 ? "Run Player Coordinates first" : "");
             } else if (i < points.size()) {
-                items[i]->setValue(points[i].type + " · " + points[i].name + "  " + distanceText(state.player, points[i]));
+                items[i]->setValue(points[i].type + " · " + points[i].name + "  " + distanceText(state.player, points[i]) + "  " + deltaText(state.player, points[i]));
             } else {
                 items[i]->setValue("");
             }
@@ -287,6 +302,8 @@ class InfoGui final : public tsl::Gui {
         layerItem->setValue(state.playerValid ? ex::layerName(state.player) : "—");
         buildIdItem->setValue(state.buildIdMatched ? "yes" : "no");
         sourceItem->setValue(state.exactPlayer ? "1.4.3 Player actor" : (state.playerValid ? "heuristic profile" : "none"));
+        actorItem->setValue(state.playerActor ? hexText(state.playerActor) : "—");
+        rejectedItem->setValue(std::to_string(state.pointsRejected));
     }
 
 public:
@@ -314,6 +331,10 @@ public:
         list->addItem(layerItem);
         list->addItem(buildIdItem);
         list->addItem(sourceItem);
+        actorItem = new tsl::elm::ListItem("Player actor");
+        rejectedItem = new tsl::elm::ListItem("CSV rejected rows");
+        list->addItem(actorItem);
+        list->addItem(rejectedItem);
 
         list->addItem(new tsl::elm::ListItem("Safety"));
         list->addItem(new tsl::elm::ListItem("Progress flags", "Not enabled"));
@@ -356,7 +377,7 @@ public:
         list->addItem(memoryItem);
         list->addItem(coordsItem);
 
-        auto* scan = new tsl::elm::ListItem("Auto Discovery");
+        auto* scan = new tsl::elm::ListItem("Player Coordinates");
         scan->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
                 tsl::changeTo<ScanGui>();
