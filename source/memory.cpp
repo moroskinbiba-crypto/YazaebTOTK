@@ -609,11 +609,17 @@ void tick() {
             g.message = "Target process unavailable.";
             return;
         }
+
+        if (g_exactBuild && !refreshExactPlayer(true)) {
+            g.playerValid = false;
+            g.playerActor = 0;
+            g.message = "Player actor not currently resolved.";
+        }
     }
 
     if (g.stage == ScanStage::Scanning)
         scanChunk();
-    else if (g.stage == ScanStage::Ready)
+    else if (g.stage == ScanStage::Ready && g.playerValid)
         refreshPlayer();
 }
 
