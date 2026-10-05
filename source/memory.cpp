@@ -165,9 +165,17 @@ bool findTargetProcess() {
     g_exactBuild = g.buildIdMatched;
     updateBuildInfo();
 
-    if (previousPid != g.processId || previousExactBuild != g_exactBuild || previousGameProfile != g_gameProfile) {
+    const bool profileChanged =
+        previousPid != g.processId ||
+        previousExactBuild != g_exactBuild ||
+        previousGameProfile != g_gameProfile;
+
+    if (profileChanged) {
         g.playerActor = 0;
         g.playerValid = false;
+        // A heuristic heap offset is build-specific. Never carry it across
+        // process/version changes, otherwise a fallback could read stale memory.
+        g.profile = Profile{};
         if (g_gameProfile) {
             char message[96]{};
             std::snprintf(message, sizeof(message),
