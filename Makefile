@@ -24,6 +24,13 @@ INCLUDES := include
 include $(TOPDIR)/libs/libultrahand/ultrahand.mk
 NO_ICON := 1
 
+# Embed the NACP metadata into the NRO. Ultrahand parses this metadata when
+# discovering .ovl files; without it the NRO can still launch, but the overlay
+# is rejected from the Ultrahand list.
+ifeq ($(strip $(NO_NACP)),)
+	export NROFLAGS += --nacp=$(CURDIR)/$(TARGET).nacp
+endif
+
 ARCH := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 CFLAGS := -g -O2 -ffunction-sections -w $(ARCH) $(DEFINES)
 CFLAGS += $(INCLUDE) -D__SWITCH__
