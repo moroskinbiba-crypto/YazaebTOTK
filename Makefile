@@ -1,6 +1,6 @@
 #---------------------------------------------------------------------------------
 # TOTK Explorer - Tesla Overlay
-# Target: The Legend of Zelda: Tears of the Kingdom 1.4.3
+# Target: The Legend of Zelda: Tears of the Kingdom 1.4.0-1.4.3
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 
@@ -14,7 +14,7 @@ TOPDIR := $(patsubst %/,%,$(TOPDIR))
 include $(DEVKITPRO)/libnx/switch_rules
 
 APP_TITLE := TOTK Explorer
-APP_VERSION := 3.3.2
+APP_VERSION := 3.4.0
 TARGET := TOTK-Explorer-v3
 BUILD := build
 SOURCES := source libs/libtesla/source
