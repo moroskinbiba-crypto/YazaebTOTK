@@ -14,6 +14,7 @@ State g{};
 DmntCheatProcessMetadata g_meta{};
 bool g_dmntInitialized = false;
 bool g_exactBuild = false;
+u32 g_healthTicks = 0;
 
 // Public 1.4.3 game-layout profile used by the exact actor resolver.
 // Scene-module singleton: main + 0x1AFBE4.
@@ -110,13 +111,22 @@ bool findTargetProcess() {
         g_meta.heap_extents.size < 0x1000)
         return false;
 
+    const u64 previousPid = g.processId;
     g.processId = g_meta.process_id;
+    if (previousPid != 0 && previousPid != g.processId) {
+        g.playerActor = 0;
+        g.playerValid = false;
+        logMessage("Game process changed; refreshing Player actor.");
+    }
     g.mainBase = g_meta.main_nso_extents.base;
     g.mainSize = g_meta.main_nso_extents.size;
     g.heapBase = g_meta.heap_extents.base;
     g.heapSize = g_meta.heap_extents.size;
     g.buildIdMatched = buildIdMatches143();
     g_exactBuild = g.buildIdMatched;
+    logMessage(g.buildIdMatched
+        ? "Target process found; Build ID matched 1.4.3."
+        : "Target process found; Build ID mismatch.");
     return true;
 }
 
@@ -208,17 +218,19 @@ bool resolveExactPlayerActor(u64& actorOut) {
     return false;
 }
 
-bool refreshExactPlayer() {
+bool refreshExactPlayer(bool validateActor) {
     if (!g_exactBuild)
         return false;
 
-    if (g.playerActor != 0 && actorNameIs(g.playerActor, "Player")) {
-        Vec3 value{};
-        if (readVec3(g.playerActor + ACTOR_POSITION, value)) {
-            g.player = value;
-            g.playerValid = true;
-            g.exactPlayer = true;
-            return true;
+    if (g.playerActor != 0) {
+        if (!validateActor || actorNameIs(g.playerActor, "Player")) {
+            Vec3 value{};
+            if (readVec3(g.playerActor + ACTOR_POSITION, value)) {
+                g.player = value;
+                g.playerValid = true;
+                g.exactPlayer = true;
+                return true;
+            }
         }
     }
 
@@ -234,6 +246,7 @@ bool refreshExactPlayer() {
     g.player = value;
     g.playerValid = true;
     g.exactPlayer = true;
+    logMessage("Exact 1.4.3 Player actor resolved.");
     return true;
 }
 
@@ -339,7 +352,8 @@ void filterMove() {
 
         Candidate updated = candidate;
         updated.value = current;
-        updated.score += 3;
+        const float score = std::min(horizontal, 100.0f) / 100.0f;
+        updated.score += 3 + static_cast<int>(score * 2.0f);
         filtered.push_back(updated);
     }
 
@@ -368,7 +382,8 @@ void filterJump() {
 
         Candidate updated = candidate;
         updated.value = current;
-        updated.score += 5;
+        const float verticalScore = std::min(std::fabs(dy), 100.0f) / 100.0f;
+        updated.score += 5 + static_cast<int>(verticalScore * 2.0f);
         filtered.push_back(updated);
     }
 
@@ -416,6 +431,7 @@ Result initMemory() {
 
     g_dmntInitialized = true;
     g.dmntReady = true;
+    logMessage("dmnt:cht initialized.");
 
     bool hasProcess = false;
     if (R_SUCCEEDED(dmntchtHasCheatProcess(&hasProcess)) && !hasProcess) {
@@ -436,7 +452,7 @@ Result initMemory() {
         return 1;
     }
 
-    if (g_exactBuild && refreshExactPlayer()) {
+    if (g_exactBuild && refreshExactPlayer(true)) {
         g.stage = ScanStage::Ready;
         g.message = "Exact 1.4.3 Player actor coordinates active.";
         return 0;
@@ -461,6 +477,7 @@ Result initMemory() {
 }
 
 void shutdownMemory() {
+    g_healthTicks = 0;
     if (g.attachedByUs) {
         dmntchtForceCloseCheatProcess();
         g.attachedByUs = false;
@@ -475,12 +492,13 @@ void shutdownMemory() {
 }
 
 void startAutoScan() {
+    g_healthTicks = 0;
     if (!g.dmntReady && R_FAILED(initMemory()))
         return;
 
     // Exact 1.4.3 resolver is always preferred. The fallback scanner should
     // only run when the exact Player actor cannot currently be resolved.
-    if (g_exactBuild && refreshExactPlayer()) {
+    if (g_exactBuild && refreshExactPlayer(true)) {
         g.stage = ScanStage::Ready;
         g.message = "Exact 1.4.3 Player actor coordinates active.";
         return;
@@ -524,6 +542,7 @@ void captureJump() {
 }
 
 void resetScan() {
+    g_healthTicks = 0;
     g.stage = ScanStage::Idle;
     g.message = "Ready";
     g.error.clear();
@@ -538,7 +557,7 @@ void resetScan() {
 }
 
 void refreshPlayer() {
-    if (g_exactBuild && refreshExactPlayer()) {
+    if (g_exactBuild && refreshExactPlayer(false)) {
         g.stage = ScanStage::Ready;
         g.message = "Exact 1.4.3 Player actor coordinates active.";
         return;
@@ -562,8 +581,35 @@ void refreshPlayer() {
 }
 
 void tick() {
-    if (!g.dmntReady)
+    if (!g_dmntReady)
         return;
+
+    ++g_healthTicks;
+    if (g_healthTicks >= 120) {
+        g_healthTicks = 0;
+
+        bool hasProcess = false;
+        if (R_FAILED(dmntchtHasCheatProcess(&hasProcess)))
+            hasProcess = false;
+
+        if (!hasProcess) {
+            if (R_SUCCEEDED(dmntchtForceOpenCheatProcess())) {
+                g.attachedByUs = true;
+                logMessage("Re-attached to game process.");
+            } else {
+                g.playerValid = false;
+                g.message = "Game process unavailable.";
+                return;
+            }
+        }
+
+        if (!findTargetProcess()) {
+            g.playerValid = false;
+            g.playerActor = 0;
+            g.message = "Target process unavailable.";
+            return;
+        }
+    }
 
     if (g.stage == ScanStage::Scanning)
         scanChunk();
