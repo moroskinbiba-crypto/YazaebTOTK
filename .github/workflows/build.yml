@@ -78,6 +78,8 @@ jobs:
           make clean
           make -j2
           test -s TOTK-Explorer-v3.ovl
+          printf 'ULTR' > /tmp/ultr_signature
+          tail -c 4 TOTK-Explorer-v3.ovl | cmp - /tmp/ultr_signature
 
       - name: Package
         run: |
