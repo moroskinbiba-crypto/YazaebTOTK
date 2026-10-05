@@ -42,7 +42,7 @@ jobs:
           set -eux
           rm -rf /tmp/libultrahand libs/libultrahand
           git clone --filter=blob:none --no-checkout https://github.com/ppkantorski/libultrahand.git /tmp/libultrahand
-          git -C /tmp/libultrahand checkout --detach 856ddbddd796fc4a59ad2e0bf939c5963e6f9dd2
+          git -C /tmp/libultrahand checkout --detach 1b7a64a4d73489c870f3fb9caa9927e9a2347478
           mkdir -p libs/libultrahand
           cp -a /tmp/libultrahand/ultrahand.mk libs/libultrahand/
           cp -a /tmp/libultrahand/common libs/libultrahand/
