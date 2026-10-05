@@ -37,17 +37,21 @@ jobs:
           command -v elf2nro
           test -f "${DEVKITPRO}/libnx/switch_rules"
 
-      - name: Get compatible libtesla
+      - name: Get libultrahand
         run: |
           set -eux
-          rm -rf /tmp/Status-Monitor-Deux libs/libtesla
-          git clone --filter=blob:none --no-checkout https://github.com/masagrator/Status-Monitor-Deux.git /tmp/Status-Monitor-Deux
-          git -C /tmp/Status-Monitor-Deux checkout --detach 23a97111808d74993ece25b8bab79402fa2d7880
-          mkdir -p libs
-          cp -a /tmp/Status-Monitor-Deux/lib/libtesla libs/libtesla
-          test -s libs/libtesla/include/tesla.hpp
-          test -s libs/libtesla/include/ini_funcs.hpp
-          test -s libs/libtesla/include/stb_truetype.h
+          rm -rf /tmp/libultrahand libs/libultrahand
+          git clone --filter=blob:none --no-checkout https://github.com/ppkantorski/libultrahand.git /tmp/libultrahand
+          git -C /tmp/libultrahand checkout --detach 856ddbddd796fc4a59ad2e0bf939c5963e6f9dd2
+          mkdir -p libs/libultrahand
+          cp -a /tmp/libultrahand/ultrahand.mk libs/libultrahand/
+          cp -a /tmp/libultrahand/common libs/libultrahand/
+          cp -a /tmp/libultrahand/libultra libs/libultrahand/
+          cp -a /tmp/libultrahand/libtesla libs/libultrahand/
+          test -s libs/libultrahand/ultrahand.mk
+          test -s libs/libultrahand/libtesla/include/tesla.hpp
+          test -s libs/libultrahand/libtesla/include/ini_funcs.hpp
+          test -s libs/libultrahand/libtesla/include/stb_truetype.h
 
       - name: Get dmnt:cht
         run: |
