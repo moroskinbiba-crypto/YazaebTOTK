@@ -9,8 +9,8 @@ namespace ex {
 
 inline constexpr u64 TITLE_ID = 0x0100F2C0115B6000ULL;
 inline constexpr const char* TITLE_TEXT = "0100F2C0115B6000";
-inline constexpr const char* BID_TEXT = "277178B7DBA1B6D4";
-inline constexpr const char* GAME_VERSION = "1.4.3";
+inline constexpr const char* BID_TEXT = "auto-detect (1.4.0-1.4.3)";
+inline constexpr const char* GAME_VERSION = "1.4.0-1.4.3";
 inline constexpr const char* VERSION = "3.3.2";
 
 struct Vec3 { float x{}, y{}, z{}; };
@@ -35,6 +35,8 @@ struct State {
     bool playerValid{};
     bool exactPlayer{};
     bool buildIdMatched{};
+    std::string gameVersion{"unknown"};
+    std::string buildId{"—"};
     bool dmntReady{};
     bool attachedByUs{};
     u64 mainBase{};
