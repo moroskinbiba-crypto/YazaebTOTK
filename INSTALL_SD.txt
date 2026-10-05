@@ -1,4 +1,4 @@
-TOTK Explorer v3.4.0
+TOTK Explorer v3.4.1
 
 After downloading the GitHub Actions artifact, extract the `sd` directory to the root of the Switch microSD card.
 
