@@ -20,7 +20,7 @@ BUILD := build
 SOURCES := source
 INCLUDES := include
 
-# libultrahand is the maintained Ultrahand/libtesla foundation used by Tetris.
+# libultrahand is pinned to the exact submodule commit used by the working Tetris overlay.
 include $(TOPDIR)/libs/libultrahand/ultrahand.mk
 NO_ICON := 1
 
@@ -28,7 +28,7 @@ NO_ICON := 1
 # discovering .ovl files; without it the NRO can still launch, but the overlay
 # is rejected from the Ultrahand list.
 ifeq ($(strip $(NO_NACP)),)
-	export NROFLAGS += --nacp=$(CURDIR)/$(TARGET).nacp
+	export NROFLAGS += --nacp=$(TOPDIR)/$(TARGET).nacp
 endif
 
 ARCH := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
