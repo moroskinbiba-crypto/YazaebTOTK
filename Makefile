@@ -14,7 +14,7 @@ TOPDIR := $(patsubst %/,%,$(TOPDIR))
 include $(DEVKITPRO)/libnx/switch_rules
 
 APP_TITLE := TOTK Explorer
-APP_VERSION := 3.4.0
+APP_VERSION := 3.4.1
 TARGET := TOTK-Explorer-v3
 BUILD := build
 SOURCES := source libs/libtesla/source
