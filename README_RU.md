@@ -1,6 +1,6 @@
-# TOTK Explorer v3.4.1 — multi-version Player resolver
+# TOTK Explorer v3.4.2 — multi-version Player resolver
 
-Tesla overlay for The Legend of Zelda: Tears of the Kingdom.
+Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom.
 
 Поддерживаемые точные builds:
 - 1.4.0 — BID 6265F94D606242CE
@@ -9,40 +9,45 @@ Tesla overlay for The Legend of Zelda: Tears of the Kingdom.
 - 1.4.3 — BID 277178B7DBA1B6D4
 - Title ID: 0100F2C0115B6000
 
-## Что исправлено
+## Текущий архитектурный статус
 
-- CI использует devkitPro/devkitA64 и проверяет наличие `switch_rules`, C++-компилятора и `elf2nro` до сборки.
-- libtesla берётся из зафиксированного коммита Status-Monitor-Deux, в котором есть совместимые с текущим проектом имена кнопок и сигнатура `handleInput`.
-- `dmnt:cht` берётся из зафиксированного коммита Shiny-Stash-Live-Map вместе с `libdmntcht.a` и `dmntcht.h`.
-- `source/ui.cpp` явно подключает `<cmath>` для `sqrt/lround`.
-- Для точных builds 1.4.0-1.4.3 добавлен resolver актёра `Player`: профиль выбирается автоматически по BID. Для каждого build используется свой `sceneModule`, а цепочка resident actor и поля `ActorName`/`ActorPosition` общая.
-- Перед использованием exact resolver проверяются Title ID и короткий 16-символьный BID через `main_nso_build_id`; неподдерживаемый build не получает чужие offsets.
-- Артефакт CI принудительно включает скрытый каталог `.overlays`.
-- CI проверяет последние 4 байта `.ovl` на сигнатуру `ULTR`, необходимую для распознавания Ultrahand.
-- CI проверяет формат и слой каждой строки `points.csv`.
+- Сборка использует libultrahand; для CI и setup pinned commit соответствует submodule текущего Tetris Overlay: `1b7a64a4d73489c870f3fb9caa9927e9a2347478`.
+- `dmnt:cht` не инициализируется до появления GUI. Сервис подключается лениво при выборе Player Coordinates и освобождается в `exitServices()`.
+- CI собирает обычный `TOTK-Explorer-v3.nro` и overlay `TOTK-Explorer-v3.ovl`.
+- `.ovl` строится как тот же NRO плюс последние 4 байта `ULTR`.
+- NACP встраивается в NRO через `NROFLAGS --nacp`. Это важно для Ultrahand: при сканировании `*.ovl` он читает NRO header, asset header и NACP, а затем получает имя/версию overlay.
+- NRO остаётся доступным как отдельный диагностический вариант для запуска через Homebrew Menu.
 
-## Текущее состояние
+## Координаты
 
-Основной путь координат — resolver актёра `Player` для поддерживаемых builds 1.4.0-1.4.3: он автоматически выбирает профиль по BID, находит resident actor с именем `Player` и читает позицию из `ActorPosition`. На каждом обновлении читается сохранённый actor address; периодически resolver повторно валидирует actor и автоматически восстанавливается после смены процесса игры.
+Основной путь координат — exact resolver актёра `Player` для builds 1.4.0-1.4.3: профиль выбирается по BID, затем находится resident actor с именем `Player`, после чего читается его позиция.
 
-Эвристический сканер сохранён как fallback для неподдерживаемых builds и на случай отказа exact resolver. Он ищет тройки `float` в памяти процесса и использует движение игрока/изменение высоты для отбора кандидата.
+Эвристический сканер сохранён как fallback для неподдерживаемых builds и при отказе exact resolver. Он ищет тройки `float` в памяти процесса и фильтрует их по движению и изменению высоты.
 
-В `data/points.csv` сейчас находится 152 святилища. Формат: `Type,Name,X,Y,Z,Layer`. Источник с колонками `X,Y,Height` нормализован в игровой порядок `X,Y,Z`, где игровая `Z` — высота. Сырой actor position из памяти TOTK имеет порядок `X,Height,Z` и перед выводом переставляется в `X,Y,Z`.
+Переход между игровыми процессами обрабатывается безопасно: при смене PID/base старые actor/profile данные сбрасываются.
 
-Список Nearby использует консервативную фильтрацию: в Depths остаются Depths-точки, а вне Depths доступны и Surface, и Sky. Это избегает ложного определения Sky по одной только высоте, поскольку некоторые Surface-точки находятся высоко. Diagnostics показывает адрес Player actor и количество отброшенных строк CSV.
+## Данные карты
 
-Diagnostics показывает фактические Version/BID, определён ли build как поддерживаемый и какой источник координат активен.
+`data/points.csv` содержит 152 святилища.
 
-Диагностика дополнительно записывается в:
-`sd:/switch/totk_explorer/log.txt`.
+Формат:
+`Type,Name,X,Y,Z,Layer`
 
-После повторного аудита дополнительно защищено переключение между процессами: старые actor/heap-профили сбрасываются при изменении PID или базовых адресов.
+## Диагностика
 
-Физическая проверка на Switch всё равно остаётся обязательной: CI подтверждает сборку, упаковку и формат данных, но не заменяет тестирование на консоли.
+Логи:
+`sdmc:/switch/totk_explorer/log.txt`
+
+В Diagnostics показываются:
+- фактический Game Version;
+- BID;
+- PID и heap size;
+- статус `dmnt:cht`;
+- источник координат;
+- адрес Player actor;
+- число отклонённых строк CSV.
 
 ## Сборка
-
-В GitHub Actions запускается workflow `TOTK Explorer Build`.
 
 Локально:
 
@@ -52,13 +57,22 @@ make clean
 make -j2
 ```
 
-Результат: `TOTK-Explorer-v3.ovl`.
+Результат:
+- `TOTK-Explorer-v3.nro`
+- `TOTK-Explorer-v3.ovl`
 
 ## Установка
 
-Из артефакта CI содержимое `switch` копируется в корень microSD:
+Из CI artifact скопировать содержимое `sd` в корень microSD:
 
 ```text
 sd:/switch/.overlays/TOTK-Explorer-v3.ovl
+sd:/switch/totk_explorer/TOTK-Explorer-v3.nro
 sd:/switch/totk_explorer/points.csv
 ```
+
+Для Ultrahand используется `TOTK-Explorer-v3.ovl`.
+
+Для отдельной проверки через Homebrew Menu можно запускать `TOTK-Explorer-v3.nro`.
+
+Физическая проверка на Switch всё равно обязательна: CI подтверждает сборку и структуру NRO/OVL, но не заменяет runtime-тест на консоли.
