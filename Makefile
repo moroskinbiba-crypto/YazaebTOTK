@@ -93,8 +93,12 @@ DEPENDS := $(OFILES:.o=.d)
 
 all: $(OUTPUT).ovl
 
-$(OUTPUT).ovl: $(OUTPUT).elf $(OUTPUT).nacp
+$(OUTPUT).nro: $(OUTPUT).elf $(OUTPUT).nacp
 	@elf2nro $< $@ $(NROFLAGS)
+	@echo "built ... $(notdir $(OUTPUT).nro)"
+
+$(OUTPUT).ovl: $(OUTPUT).nro
+	@cp $< $@
 	@printf 'ULTR' >> $@
 	@echo "built ... $(notdir $(OUTPUT).ovl)"
 	@echo "Ultrahand signature (ULTR) appended"
