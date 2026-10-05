@@ -227,7 +227,7 @@ bool actorNameIs(u64 actor, const char* wanted) {
     char buffer[64]{};
     if (!readRemoteCString(name, buffer, sizeof(buffer)))
         return false;
-    return std::strncmp(buffer, wanted, sizeof(buffer)) == 0;
+    return std::strcmp(buffer, wanted) == 0;
 }
 
 bool resolveExactPlayerActor(u64& actorOut) {
