@@ -144,11 +144,11 @@ public:
 };
 
 class MapHudGui final : public tsl::Gui {
-    static constexpr s32 PANEL_W = 304;
-    static constexpr s32 PANEL_H = 348;
-    static constexpr s32 MAP_SIZE = 244;
+    static constexpr s32 PANEL_W = 260;
+    static constexpr s32 PANEL_H = 292;
+    static constexpr s32 MAP_SIZE = 210;
     static constexpr s32 MARGIN = 12;
-    static constexpr float RADIUS = 1800.0f;
+    static constexpr float RADIUS = 1500.0f;
 
     const u16 oldBackgroundColor = backgroundColor;
     const bool oldFullMode = FullMode;
@@ -211,7 +211,7 @@ class MapHudGui final : public tsl::Gui {
         return buffer;
     }
 
-    void drawMap(tsl::gfx::Renderer* renderer, const ex::State& state,
+    static void drawMap(tsl::gfx::Renderer* renderer, const ex::State& state,
                  const std::vector<ex::Point>& points, s32 x, s32 y) {
         const s32 centerX = x + MAP_SIZE / 2;
         const s32 centerY = y + MAP_SIZE / 2;
@@ -271,9 +271,9 @@ public:
             [](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
                 const auto& state = ex::state();
 
-                const s32 baseX = 8;
-                const s32 baseY = 180;
-                const s32 mapX = baseX + MARGIN + 26;
+                const s32 baseX = tsl::cfg::FramebufferWidth - PANEL_W - 8;
+                const s32 baseY = 8;
+                const s32 mapX = baseX + MARGIN + 12;
                 const s32 mapY = baseY + 74;
 
                 renderer->drawRoundRect(baseX, baseY, PANEL_W, PANEL_H, 0.05f, 0.05f, 0.05f, 0.05f,
@@ -303,7 +303,7 @@ public:
                 renderer->drawString(nearestText(state.player, points).c_str(), false,
                                      baseX + MARGIN, baseY + PANEL_H - 40, 12.0f,
                                      renderer->a(mutedColor()));
-                renderer->drawString("B: close", false, baseX + PANEL_W - 62,
+                renderer->drawString("B close", false, baseX + PANEL_W - 52,
                                      baseY + PANEL_H - 40, 11.0f,
                                      renderer->a(mutedColor()));
             });
