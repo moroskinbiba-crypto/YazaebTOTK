@@ -62,6 +62,9 @@ export INCLUDE := $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \
                   -I$(TOPDIR)/$(BUILD)
 export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
+# devkitA64 base_rules consumes CFLAGS; explicitly pass the exported include list.
+CFLAGS += $(INCLUDE)
+
 .PHONY: all clean
 
 all: $(BUILD)
