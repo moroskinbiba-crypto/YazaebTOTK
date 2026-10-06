@@ -393,6 +393,7 @@ class DiagnosticsGui final : public tsl::Gui {
 
 public:
     tsl::elm::Element* createUI() override {
+        ex::ensureMemory();
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Diagnostics");
         auto* list = new tsl::elm::List();
 
