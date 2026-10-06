@@ -49,6 +49,7 @@ struct State {
 };
 
 State& state();
+Result ensureMemory();
 Result initMemory();
 void shutdownMemory();
 void tick();
