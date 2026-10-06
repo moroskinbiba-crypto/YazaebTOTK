@@ -43,34 +43,15 @@ std::string hexText(u64 value) {
 
 class CalibrationGui final : public tsl::Gui {
     tsl::elm::ListItem* stageItem{};
-    tsl::elm::ListItem* progressItem{};
-    tsl::elm::ListItem* candidatesItem{};
     tsl::elm::ListItem* instructionItem{};
 
     void refresh() {
         const auto& state = ex::state();
         stageItem->setValue(ex::stageText(state.stage));
 
-        if (state.heapSize > 0) {
-            const double pct = 100.0 * static_cast<double>(state.scanned) / static_cast<double>(state.heapSize);
-            char progress[48]{};
-            std::snprintf(progress, sizeof(progress), "%.0f%%", pct);
-            progressItem->setValue(progress);
-        } else {
-            progressItem->setValue("0%");
-        }
-
-        candidatesItem->setValue(std::to_string(state.candidates));
-
         switch (state.stage) {
-            case ex::ScanStage::Scanning:
-                instructionItem->setValue("Looking for Player actor...");
-                break;
-            case ex::ScanStage::WaitMove:
-                instructionItem->setValue("Walk 5-10 m, then press X");
-                break;
-            case ex::ScanStage::WaitJump:
-                instructionItem->setValue("Jump / change elevation, press X");
+            case ex::ScanStage::Resolving:
+                instructionItem->setValue("Looking for exact Player actor...");
                 break;
             case ex::ScanStage::Ready:
                 instructionItem->setValue("Calibration complete");
@@ -94,15 +75,11 @@ public:
         auto* list = new tsl::elm::List();
 
         stageItem = new tsl::elm::ListItem("Step");
-        progressItem = new tsl::elm::ListItem("Progress");
-        candidatesItem = new tsl::elm::ListItem("Candidates");
         instructionItem = new tsl::elm::ListItem("Instruction");
         list->addItem(stageItem);
-        list->addItem(progressItem);
-        list->addItem(candidatesItem);
         list->addItem(instructionItem);
 
-        auto* start = new tsl::elm::ListItem("Start / Restart");
+        auto* start = new tsl::elm::ListItem("Resolve / Refresh");
         start->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
                 ex::startAutoScan();
@@ -111,9 +88,6 @@ public:
             return false;
         });
         list->addItem(start);
-
-        list->addItem(new tsl::elm::ListItem("X = capture step"));
-        list->addItem(new tsl::elm::ListItem("Y = reset"));
 
         frame->setContent(list);
         refresh();
@@ -126,14 +100,6 @@ public:
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & KEY_X) {
-            if (ex::state().stage == ex::ScanStage::WaitMove)
-                ex::captureMove();
-            else if (ex::state().stage == ex::ScanStage::WaitJump)
-                ex::captureJump();
-            return true;
-        }
-
         if (keysDown & KEY_Y) {
             ex::resetScan();
             return true;
@@ -196,8 +162,7 @@ class PersistentHudGui final : public tsl::Gui {
     }
 
     static std::string sourceText(const ex::State& state) {
-        return state.exactPlayer ? "Exact Player actor"
-                                 : (state.playerValid ? "Heuristic profile" : "Not detected");
+        return state.exactPlayer ? "Exact Player actor" : "Not detected";
     }
 
     static std::string nearestText(const ex::Vec3& player, const std::vector<ex::Point>& points) {
@@ -253,8 +218,15 @@ class PersistentHudGui final : public tsl::Gui {
         renderer->drawCircle(centerX, centerY, 11, false, renderer->a(playerColor()));
     }
 
+    std::vector<ex::Point> cachedPoints{};
+    u32 nearbyRefreshTicks = 0;
+
 public:
     PersistentHudGui() {
+        // Match the working Status Monitor Full-mode behavior and ensure the
+        // persistent layer is not left at an Ultrahand menu offset.
+        tsl::gfx::Renderer::get().setLayerPos(0, 0);
+
         // Keep this GUI inside the same Tesla overlay instance, exactly like
         // Status Monitor's persistent Full mode. Hand the controller focus back
         // to the game while Tesla continues rendering this GUI.
@@ -265,14 +237,17 @@ public:
     ~PersistentHudGui() override {
         tsl::disableHiding = false;
         tsl::hlp::requestForeground(true);
+        tsl::gfx::Renderer::get().setLayerPos(0, 0);
     }
 
     tsl::elm::Element* createUI() override {
         ex::ensureMemory();
 
         auto* rootFrame = new tsl::elm::OverlayFrame("", "");
+        cachedPoints = ex::nearby(RADIUS, 32);
+
         auto* drawer = new tsl::elm::CustomDrawer(
-            [](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
+            [this](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
                 const auto& state = ex::state();
 
                 const s32 baseX = tsl::cfg::FramebufferWidth - PANEL_W - 16;
@@ -302,17 +277,16 @@ public:
                                          baseX + MARGIN, baseY + 74, 12.0f,
                                          renderer->a(mutedColor()));
 
-                    const auto points = ex::nearby(RADIUS, 32);
-                    drawMap(renderer, state, points, mapX, mapY);
+                    drawMap(renderer, state, cachedPoints, mapX, mapY);
 
                     char nearbyTextBuffer[64]{};
                     std::snprintf(nearbyTextBuffer, sizeof(nearbyTextBuffer),
-                                  "Nearby: %zu points", points.size());
+                                  "Nearby: %zu points", cachedPoints.size());
                     renderer->drawString(nearbyTextBuffer, false,
                                          baseX + MARGIN, baseY + PANEL_H - 72, 13.0f,
                                          renderer->a(textColor()));
 
-                    renderer->drawString(nearestText(state.player, points).c_str(),
+                    renderer->drawString(nearestText(state.player, cachedPoints).c_str(),
                                          false, baseX + MARGIN, baseY + PANEL_H - 48, 12.0f,
                                          renderer->a(mutedColor()));
                 }
@@ -328,14 +302,27 @@ public:
 
     void update() override {
         ex::tick();
+
+        if (++nearbyRefreshTicks >= 10) {
+            nearbyRefreshTicks = 0;
+            cachedPoints = ex::nearby(RADIUS, 32);
+        }
     }
 
     bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) && (keysDown & KEY_MINUS)) {
+        // Detached HUD must consume all ordinary input so Tesla cannot treat B,
+        // HOME-adjacent actions or navigation keys as a request to pop/close
+        // this GUI. This mirrors the detachable-overlay pattern used by
+        // pkTeraRaid and Status Monitor-style persistent modes.
+        tsl::homeButtonPressedInGame.store(false, std::memory_order_release);
+
+        if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) &&
+            (keysDown & KEY_MINUS)) {
             tsl::Overlay::get()->close();
             return true;
         }
-        return false;
+
+        return true;
     }
 };
 
@@ -359,6 +346,7 @@ class NearbyGui final : public tsl::Gui {
 
 public:
     tsl::elm::Element* createUI() override {
+        ex::ensureMemory();
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Nearby");
         auto* list = new tsl::elm::List();
         list->addItem(new tsl::elm::ListItem("Nearest database points"));
@@ -413,6 +401,7 @@ class DiagnosticsGui final : public tsl::Gui {
 
 public:
     tsl::elm::Element* createUI() override {
+        ex::ensureMemory();
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Diagnostics");
         auto* list = new tsl::elm::List();
 

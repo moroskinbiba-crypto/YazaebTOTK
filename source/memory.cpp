@@ -1,11 +1,9 @@
 #include "explorer.hpp"
 #include "switch/dmntcht.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <vector>
 
 namespace ex {
 namespace {
@@ -30,9 +28,7 @@ constexpr GameProfile kGameProfiles[] = {
 };
 static_assert(sizeof(kGameProfiles) / sizeof(kGameProfiles[0]) == 4);
 
-const GameProfile* g_gameProfile = nullptr;
-
-// Shared Player layout for 1.4.0-1.4.3:
+// Shared Player layout for 1.4.0-1.4.3.
 // Scene -> components: +0x1E8 then +0x58.
 // Resident actor manager: components[13].
 // Resident manager: count +0x20, list +0x28.
@@ -49,24 +45,17 @@ constexpr u64 ACTOR_FROM_DESCRIPTOR = 0x40;
 constexpr u64 ACTOR_NAME = 0x218;
 constexpr u64 ACTOR_POSITION = 0x2B4;
 
-// Heuristic fallback scanner.
-constexpr u64 SCAN_CHUNK = 0x80000;
-constexpr std::size_t MAX_CANDIDATES = 16384;
 constexpr u32 EXACT_RETRY_TICKS = 30;
+constexpr u32 HEALTH_CHECK_TICKS = 120;
 constexpr float MAX_XZ = 12000.0f;
 constexpr float MAX_Y = 6000.0f;
-constexpr float MOVE_EPS = 0.75f;
-constexpr float JUMP_EPS = 2.0f;
-constexpr float MAX_STEP = 1500.0f;
 
-const char* profilePath() {
-    return "sdmc:/switch/totk_explorer/profile.txt";
-}
+const GameProfile* g_gameProfile = nullptr;
 
-Vec3 displayFromEngine(const Vec3& raw) {
-    // TOTK actor memory stores position as X, vertical Y, world Z.
-    // The overlay/database convention is game X, game Y, height Z.
-    return {raw.x, raw.z, raw.y};
+void fail(const char* message) {
+    g.stage = ScanStage::Failed;
+    g.error = message ? message : "Unknown error";
+    g.message = g.error;
 }
 
 bool finiteCoord(float v) {
@@ -84,17 +73,20 @@ bool plausible(Vec3 p) {
 }
 
 bool plausibleAddress(u64 address) {
-    return address >= 0x1000000ULL && address < 0x8000000000ULL && (address & 0x7ULL) == 0;
+    return address >= 0x1000000ULL &&
+           address < 0x8000000000ULL &&
+           (address & 0x7ULL) == 0;
 }
 
-void fail(const char* message) {
-    g.stage = ScanStage::Failed;
-    g.error = message;
-    g.message = message;
+Vec3 displayFromEngine(const Vec3& raw) {
+    // Engine memory convention: X, vertical Y, world Z.
+    // Explorer convention: X, world Y, height Z.
+    return {raw.x, raw.z, raw.y};
 }
 
 const GameProfile* matchGameProfile() {
     constexpr char HEX[] = "0123456789ABCDEF";
+
     for (const auto& profile : kGameProfiles) {
         bool match = true;
         for (std::size_t i = 0; i < 8; ++i) {
@@ -105,30 +97,56 @@ const GameProfile* matchGameProfile() {
                 break;
             }
         }
+
         if (match)
             return &profile;
     }
+
     return nullptr;
 }
 
 void updateBuildInfo() {
     constexpr char HEX[] = "0123456789ABCDEF";
     char bid[17]{};
+
     for (std::size_t i = 0; i < 8; ++i) {
         const u8 byte = g_meta.main_nso_build_id[i];
         bid[i * 2] = HEX[(byte >> 4) & 0xF];
         bid[i * 2 + 1] = HEX[byte & 0xF];
     }
+
     g.buildId = bid;
     g.gameVersion = g_gameProfile ? g_gameProfile->version : "unsupported";
 }
 
-void clearDiscoveryState() {
-    g.candidatesList.clear();
-    g.candidates = 0;
-    g.candidatesSeen = 0;
-    g.cursor = 0;
-    g.scanned = 0;
+void resetPlayerState() {
+    g.playerActor = 0;
+    g.playerValid = false;
+    g.exactPlayer = false;
+}
+
+void releaseOwnedProcess() {
+    if (g.attachedByUs) {
+        dmntchtForceCloseCheatProcess();
+        g.attachedByUs = false;
+    }
+}
+
+void resetProcessState(const char* message) {
+    resetPlayerState();
+    g.processId = 0;
+    g.mainBase = 0;
+    g.mainSize = 0;
+    g.heapBase = 0;
+    g.heapSize = 0;
+    g_gameProfile = nullptr;
+    g_exactBuild = false;
+    g.buildIdMatched = false;
+    g.gameVersion = "unknown";
+    g.buildId = "—";
+    g.stage = ScanStage::Failed;
+    g.error = message ? message : "Game process unavailable.";
+    g.message = g.error;
 }
 
 bool findTargetProcess() {
@@ -142,97 +160,105 @@ bool findTargetProcess() {
         g_meta.main_nso_extents.base == 0 ||
         g_meta.main_nso_extents.size < 0x1000 ||
         g_meta.heap_extents.base == 0 ||
-        g_meta.heap_extents.size < 0x1000)
+        g_meta.heap_extents.size < 0x1000) {
         return false;
+    }
 
     const u64 previousPid = g.processId;
     const u64 previousMainBase = g.mainBase;
     const u64 previousHeapBase = g.heapBase;
     const GameProfile* previousGameProfile = g_gameProfile;
     const bool previousExactBuild = g_exactBuild;
+
     g.processId = g_meta.process_id;
-    if (previousPid != 0 && previousPid != g.processId) {
-        g.playerActor = 0;
-        g.playerValid = false;
-        logMessage("Game process changed; refreshing Player actor.");
-    }
     g.mainBase = g_meta.main_nso_extents.base;
     g.mainSize = g_meta.main_nso_extents.size;
     g.heapBase = g_meta.heap_extents.base;
     g.heapSize = g_meta.heap_extents.size;
+
     g_gameProfile = matchGameProfile();
     g.buildIdMatched = g_gameProfile != nullptr;
     g_exactBuild = g.buildIdMatched;
     updateBuildInfo();
 
-    const bool profileChanged =
-        previousPid != g.processId ||
-        previousMainBase != g.mainBase ||
-        previousHeapBase != g.heapBase ||
-        previousExactBuild != g_exactBuild ||
-        previousGameProfile != g_gameProfile;
+    const bool processChanged =
+        previousPid != 0 && previousPid != g.processId;
 
-    if (profileChanged) {
-        const ScanStage previousStage = g.stage;
-        g.playerActor = 0;
-        g.playerValid = false;
-        g.profile = Profile{};
-        // Actor addresses, heuristic offsets and scan cursors are process-specific.
-        // Never carry them across a PID/base change.
-        clearDiscoveryState();
+    const bool layoutChanged =
+        previousMainBase != 0 &&
+        (previousMainBase != g.mainBase ||
+         previousHeapBase != g.heapBase);
 
-        if (previousPid != 0) {
-            if (previousStage == ScanStage::Scanning ||
-                previousStage == ScanStage::WaitMove ||
-                previousStage == ScanStage::WaitJump) {
-                g.stage = ScanStage::Scanning;
-                g.message = "Game process changed; restarting discovery...";
-            } else if (previousStage == ScanStage::Ready) {
-                g.stage = ScanStage::Idle;
-                g.message = "Game process changed; run Player Coordinates again.";
-            }
+    const bool buildChanged =
+        previousGameProfile != g_gameProfile ||
+        previousExactBuild != g_exactBuild;
+
+    if (processChanged || layoutChanged || buildChanged) {
+        resetPlayerState();
+
+        if (g_exactBuild) {
+            g.stage = ScanStage::Resolving;
+            g.message = "Game process changed; resolving Player actor...";
+        } else {
+            g.stage = ScanStage::Failed;
+            g.message = "Unsupported TOTK build. Exact coordinates unavailable.";
         }
 
         if (g_gameProfile) {
-            char message[96]{};
-            std::snprintf(message, sizeof(message),
-                          "Target process found; supported TOTK build %s matched.",
-                          g_gameProfile->version);
+            char message[128]{};
+            std::snprintf(
+                message,
+                sizeof(message),
+                "Target process found; supported TOTK build %s matched.",
+                g_gameProfile->version);
             logMessage(message);
         } else {
-            logMessage("Target process found; unsupported TOTK build; using fallback.");
+            logMessage("Target process found; unsupported TOTK build.");
         }
     }
+
     return true;
 }
 
 bool readMem(u64 address, void* out, std::size_t size) {
     if (!out || size == 0)
         return false;
-    return R_SUCCEEDED(dmntchtReadCheatProcessMemory(address, out, size));
+
+    return R_SUCCEEDED(
+        dmntchtReadCheatProcessMemory(address, out, size));
 }
 
 bool readU64(u64 address, u64& out) {
-    return readMem(address, &out, sizeof(out)) && plausibleAddress(out);
+    return readMem(address, &out, sizeof(out)) &&
+           plausibleAddress(out);
 }
 
 bool readVec3(u64 address, Vec3& out) {
     if (!readMem(address, &out, sizeof(out)))
         return false;
+
     return plausible(out);
 }
 
 bool readRemoteCString(u64 address, char* out, std::size_t capacity) {
-    if (!out || capacity == 0 || !plausibleAddress(address))
+    if (!out || capacity < 2 || !plausibleAddress(address))
         return false;
+
     std::memset(out, 0, capacity);
-    if (R_FAILED(dmntchtReadCheatProcessMemory(address, out, capacity - 1)))
+
+    if (R_FAILED(dmntchtReadCheatProcessMemory(
+            address, out, capacity - 1))) {
         return false;
+    }
+
     out[capacity - 1] = '\0';
     return std::memchr(out, '\0', capacity) != nullptr;
 }
 
 bool actorNameIs(u64 actor, const char* wanted) {
+    if (!wanted)
+        return false;
+
     u64 name = 0;
     if (!readU64(actor + ACTOR_NAME, name))
         return false;
@@ -240,11 +266,13 @@ bool actorNameIs(u64 actor, const char* wanted) {
     char buffer[64]{};
     if (!readRemoteCString(name, buffer, sizeof(buffer)))
         return false;
+
     return std::strcmp(buffer, wanted) == 0;
 }
 
 bool resolveExactPlayerActor(u64& actorOut) {
     actorOut = 0;
+
     if (!g_exactBuild || !g_gameProfile || g.mainBase == 0)
         return false;
 
@@ -261,12 +289,16 @@ bool resolveExactPlayerActor(u64& actorOut) {
         return false;
 
     u64 actorManager = 0;
-    if (!readU64(components + sizeof(u64) * RESIDENT_COMPONENT_INDEX, actorManager))
+    if (!readU64(
+            components + sizeof(u64) * RESIDENT_COMPONENT_INDEX,
+            actorManager)) {
         return false;
+    }
 
     u32 count = 0;
     if (!readMem(actorManager + RESIDENT_COUNT, &count, sizeof(count)))
         return false;
+
     if (count == 0 || count > 256)
         return false;
 
@@ -275,15 +307,19 @@ bool resolveExactPlayerActor(u64& actorOut) {
         return false;
 
     for (u32 index = 0; index < count; ++index) {
-        const u64 link = list + static_cast<u64>(index) * RESIDENT_STRIDE;
+        const u64 link =
+            list + static_cast<u64>(index) * RESIDENT_STRIDE;
 
         u64 descriptor = 0;
         if (!readU64(link + RESIDENT_DESCRIPTOR, descriptor))
             continue;
 
         u64 actor = 0;
-        if (!readU64(descriptor + ACTOR_FROM_DESCRIPTOR, actor))
+        if (!readU64(
+                descriptor + ACTOR_FROM_DESCRIPTOR,
+                actor)) {
             continue;
+        }
 
         if (actorNameIs(actor, "Player")) {
             actorOut = actor;
@@ -305,14 +341,30 @@ bool refreshExactPlayer(bool validateActor) {
                 g.player = displayFromEngine(value);
                 g.playerValid = true;
                 g.exactPlayer = true;
+                g.stage = ScanStage::Ready;
+                g.error.clear();
+                g.message = "Exact Player actor coordinates active.";
                 return true;
             }
         }
+
+        // The cached actor is stale or temporarily unreadable. Do not walk the
+        // entire resident roster from the render/update hot path.
+        g.playerActor = 0;
+        g.playerValid = false;
+        g.exactPlayer = false;
+        g.stage = ScanStage::Resolving;
+        g.message = "Player actor lost; resolving again...";
+        return false;
     }
 
     u64 actor = 0;
-    if (!resolveExactPlayerActor(actor))
+    if (!resolveExactPlayerActor(actor)) {
+        g.playerValid = false;
+        g.exactPlayer = false;
+        g.stage = ScanStage::Resolving;
         return false;
+    }
 
     Vec3 value{};
     if (!readVec3(actor + ACTOR_POSITION, value))
@@ -322,186 +374,31 @@ bool refreshExactPlayer(bool validateActor) {
     g.player = displayFromEngine(value);
     g.playerValid = true;
     g.exactPlayer = true;
+    g.stage = ScanStage::Ready;
+    g.error.clear();
+    g.message = "Exact Player actor coordinates active.";
+
     {
         char message[96]{};
-        std::snprintf(message, sizeof(message),
-                      "Exact %s Player actor resolved.",
-                      g_gameProfile ? g_gameProfile->version : "supported");
+        std::snprintf(
+            message,
+            sizeof(message),
+            "Exact %s Player actor resolved.",
+            g_gameProfile ? g_gameProfile->version : "supported");
         logMessage(message);
     }
+
     return true;
-}
-
-bool readProfileFile(Profile& profile) {
-    FILE* file = std::fopen(profilePath(), "rb");
-    if (!file)
-        return false;
-
-    char bid[32]{};
-    unsigned long long offset = 0;
-    float x = 0.0f, y = 0.0f, z = 0.0f;
-    int score = 0;
-    const int count = std::fscanf(file, "%31s %llx %f %f %f %d",
-                                  bid, &offset, &x, &y, &z, &score);
-    std::fclose(file);
-
-    if (count != 6 || g.buildId.empty() || std::strcmp(bid, g.buildId.c_str()) != 0 ||
-        offset >= g.heapSize)
-        return false;
-    if (!plausible({x, y, z}))
-        return false;
-    profile = Profile{true, static_cast<u64>(offset), {x, y, z}, score};
-    return true;
-}
-
-void addCandidate(u64 address, u64 heapOffset, Vec3 value) {
-    ++g.candidatesSeen;
-
-    // Keep a deterministic bounded set. The exact Player resolver is the primary
-    // path on supported builds; this list is only a fallback for unsupported builds
-    // or temporarily unavailable actor rosters.
-    if (g.candidatesList.size() < MAX_CANDIDATES)
-        g.candidatesList.push_back(Candidate{address, heapOffset, value, 0});
-}
-
-void scanChunk() {
-    if (g.cursor >= g.heapSize) {
-        g.stage = g.candidatesList.empty() ? ScanStage::Failed : ScanStage::WaitMove;
-        g.candidates = g.candidatesList.size();
-        g.message = g.candidatesList.empty()
-            ? "No candidates found. Run Auto Discovery again."
-            : "Scan complete. Walk Link, then press X.";
-        return;
-    }
-
-    const u64 remaining = g.heapSize - g.cursor;
-    const std::size_t bytes = static_cast<std::size_t>(std::min<u64>(SCAN_CHUNK, remaining));
-    if (bytes < sizeof(Vec3)) {
-        g.cursor = g.heapSize;
-        return;
-    }
-
-    static std::vector<u8> buffer;
-    buffer.resize(bytes);
-    if (R_FAILED(dmntchtReadCheatProcessMemory(g.heapBase + g.cursor, buffer.data(), bytes))) {
-        g.cursor += bytes;
-        g.scanned += bytes;
-        return;
-    }
-
-    for (std::size_t i = 0; i + sizeof(Vec3) <= bytes; i += 4) {
-        Vec3 value{};
-        std::memcpy(&value.x, buffer.data() + i, sizeof(float));
-        std::memcpy(&value.y, buffer.data() + i + 4, sizeof(float));
-        std::memcpy(&value.z, buffer.data() + i + 8, sizeof(float));
-
-        if (!plausible(value))
-            continue;
-
-        addCandidate(g.heapBase + g.cursor + i, g.cursor + i, value);
-    }
-
-    g.cursor += bytes;
-    g.scanned += bytes;
-    g.candidates = g.candidatesList.size();
-
-    if (g.cursor >= g.heapSize) {
-        g.stage = g.candidatesList.empty() ? ScanStage::Failed : ScanStage::WaitMove;
-        g.message = g.candidatesList.empty()
-            ? "No candidates found. Run Auto Discovery again."
-            : "Scan complete. Walk Link, then press X.";
-    } else {
-        g.message = "Scanning game memory...";
-    }
-}
-
-void filterMove() {
-    std::vector<Candidate> filtered;
-    filtered.reserve(g.candidatesList.size());
-
-    for (const Candidate& candidate : g.candidatesList) {
-        Vec3 current{};
-        if (!readVec3(candidate.address, current))
-            continue;
-
-        const float dx = current.x - candidate.value.x;
-        const float dz = current.z - candidate.value.z;
-        const float horizontal = std::sqrt(dx * dx + dz * dz);
-
-        if (horizontal < MOVE_EPS || horizontal > MAX_STEP)
-            continue;
-
-        Candidate updated = candidate;
-        updated.value = current;
-        const float score = std::min(horizontal, 100.0f) / 100.0f;
-        updated.score += 3 + static_cast<int>(score * 2.0f);
-        filtered.push_back(updated);
-    }
-
-    g.candidatesList.swap(filtered);
-    g.candidates = g.candidatesList.size();
-}
-
-void filterJump() {
-    std::vector<Candidate> filtered;
-    filtered.reserve(g.candidatesList.size());
-
-    for (const Candidate& candidate : g.candidatesList) {
-        Vec3 current{};
-        if (!readVec3(candidate.address, current))
-            continue;
-
-        const float dx = current.x - candidate.value.x;
-        const float dy = current.y - candidate.value.y;
-        const float dz = current.z - candidate.value.z;
-        const float horizontal = std::sqrt(dx * dx + dz * dz);
-
-        if (std::fabs(dy) < JUMP_EPS || std::fabs(dy) > MAX_STEP)
-            continue;
-        if (horizontal > MAX_STEP)
-            continue;
-
-        Candidate updated = candidate;
-        updated.value = current;
-        const float verticalScore = std::min(std::fabs(dy), 100.0f) / 100.0f;
-        updated.score += 5 + static_cast<int>(verticalScore * 2.0f);
-        filtered.push_back(updated);
-    }
-
-    g.candidatesList.swap(filtered);
-    g.candidates = g.candidatesList.size();
-}
-
-void selectBest() {
-    if (g.candidatesList.empty()) {
-        fail("No stable coordinate candidate. Run Auto Discovery again.");
-        return;
-    }
-
-    const auto best = std::max_element(
-        g.candidatesList.begin(), g.candidatesList.end(),
-        [](const Candidate& a, const Candidate& b) {
-            return a.score < b.score;
-        });
-
-    g.profile = Profile{true, best->heapOffset, best->value, best->score};
-    g.player = displayFromEngine(best->value);
-    g.playerValid = true;
-    g.exactPlayer = false;
-    g.playerActor = 0;
-    saveProfile();
-    g.stage = ScanStage::Ready;
-    g.message = "Heuristic coordinate candidate selected and saved.";
 }
 
 } // namespace
 
-Result ensureMemory() {
-    return initMemory();
-}
-
 State& state() {
     return g;
+}
+
+Result ensureMemory() {
+    return initMemory();
 }
 
 Result initMemory() {
@@ -520,67 +417,52 @@ Result initMemory() {
     logMessage("dmnt:cht initialized.");
 
     auto cleanupAfterFailure = [&](const char* message, Result result) {
-        if (g.attachedByUs) {
-            dmntchtForceCloseCheatProcess();
-            g.attachedByUs = false;
-        }
+        releaseOwnedProcess();
         dmntchtExit();
         g_dmntInitialized = false;
         g.dmntReady = false;
-        g.playerValid = false;
-        g.playerActor = 0;
+        resetProcessState(message);
         fail(message);
         return result;
     };
 
     bool hasProcess = false;
     rc = dmntchtHasCheatProcess(&hasProcess);
-    if (R_FAILED(rc)) {
-        return cleanupAfterFailure("Could not query the current game process.", rc);
-    }
+    if (R_FAILED(rc))
+        return cleanupAfterFailure(
+            "Could not query the current game process.", rc);
 
     if (!hasProcess) {
         rc = dmntchtForceOpenCheatProcess();
-        if (R_FAILED(rc)) {
-            return cleanupAfterFailure("Could not open the current game process.", rc);
-        }
+        if (R_FAILED(rc))
+            return cleanupAfterFailure(
+                "Could not open the current game process.", rc);
+
         g.attachedByUs = true;
     }
 
-    if (!findTargetProcess()) {
-        return cleanupAfterFailure("TOTK process not detected.", 1);
-    }
+    if (!findTargetProcess())
+        return cleanupAfterFailure(
+            "TOTK process not detected.", 1);
 
-    if (g_exactBuild && refreshExactPlayer(true)) {
-        g.stage = ScanStage::Ready;
-        g.message = "Exact Player actor coordinates active.";
+    if (!g_exactBuild) {
+        fail("Unsupported TOTK build. Supported: 1.4.0-1.4.3.");
         return 0;
     }
 
-    loadProfile();
-    if (g.profile.valid) {
-        refreshPlayer();
-        if (g.playerValid) {
-            g.stage = ScanStage::Ready;
-            g.message = g.buildIdMatched
-                ? "Exact actor not resolved; using saved heuristic profile."
-                : "Unsupported build; using saved heuristic profile.";
-        }
-    } else {
-        g.message = g.buildIdMatched
-            ? "Supported build detected, but Player actor was not resolved."
-            : "Target title found, but this TOTK build is not in the exact 1.4.x profile table.";
-    }
+    g.stage = ScanStage::Resolving;
+    g.message = "Looking for exact Player actor...";
+
+    if (!refreshExactPlayer(true))
+        logMessage("Player actor not available yet; waiting for resolver retry.");
 
     return 0;
 }
 
 void shutdownMemory() {
     g_healthTicks = 0;
-    if (g.attachedByUs) {
-        dmntchtForceCloseCheatProcess();
-        g.attachedByUs = false;
-    }
+
+    releaseOwnedProcess();
 
     if (g_dmntInitialized) {
         dmntchtExit();
@@ -588,104 +470,65 @@ void shutdownMemory() {
     }
 
     g.dmntReady = false;
+    resetProcessState("Game process unavailable.");
 }
 
 void startAutoScan() {
     g_healthTicks = 0;
+
     if (R_FAILED(initMemory()))
         return;
 
-    // Supported 1.4.0-1.4.3 builds use only the exact Player actor resolver.
-    // Never start a brute-force heap scan from the normal calibration button:
-    // it is unnecessary on known builds and can put excessive pressure on the
-    // overlay process. We simply keep retrying until the resident Player actor
-    // is available.
-    if (g_exactBuild) {
-        clearDiscoveryState();
-        g.error.clear();
-        g.stage = ScanStage::Scanning;
-        g.message = "Looking for exact Player actor...";
-        g.exactPlayer = false;
-        g.playerActor = 0;
-        g.playerValid = false;
-
-        if (refreshExactPlayer(true)) {
-            g.stage = ScanStage::Ready;
-            g.message = "Exact Player actor coordinates active.";
-        }
+    if (!g_exactBuild) {
+        fail("Unsupported TOTK build. Calibration supports 1.4.0-1.4.3 only.");
         return;
     }
 
-    clearDiscoveryState();
     g.error.clear();
-    g.stage = ScanStage::Scanning;
-    g.message = "Scanning game memory (fallback)...";
-    g.exactPlayer = false;
-    g.playerActor = 0;
-    g.playerValid = false;
-}
 
-void captureMove() {
-    if (g.stage != ScanStage::WaitMove)
+    // Idempotent restart: if Player is already resolved, never tear down the
+    // valid actor just to perform the full resident-roster walk again.
+    if (g.playerActor != 0 && refreshExactPlayer(false))
         return;
 
-    if (R_FAILED(initMemory()))
-        return;
-
-    filterMove();
-    if (g.candidatesList.empty()) {
-        fail("No moving candidates. Walk farther and restart the scan.");
-        return;
-    }
-
-    g.stage = ScanStage::WaitJump;
-    g.message = "Now jump or change elevation, then press X.";
-}
-
-void captureJump() {
-    if (g.stage != ScanStage::WaitJump)
-        return;
-
-    if (R_FAILED(initMemory()))
-        return;
-
-    filterJump();
-    selectBest();
+    g.stage = ScanStage::Resolving;
+    g.message = "Looking for exact Player actor...";
+    refreshExactPlayer(true);
 }
 
 void resetScan() {
     g_healthTicks = 0;
-    g.stage = ScanStage::Idle;
-    g.message = "Ready";
+    resetPlayerState();
     g.error.clear();
-    clearDiscoveryState();
-    g.playerValid = false;
-    g.exactPlayer = false;
-    g.playerActor = 0;
+
+    if (g_exactBuild) {
+        g.stage = ScanStage::Resolving;
+        g.message = "Looking for exact Player actor...";
+    } else {
+        g.stage = ScanStage::Idle;
+        g.message = "Ready";
+    }
 }
 
 void refreshPlayer() {
-    if (g_exactBuild && refreshExactPlayer(false)) {
-        g.stage = ScanStage::Ready;
-        g.message = "Exact Player actor coordinates active.";
-        return;
-    }
-
-    if (!g.profile.valid || g.heapBase == 0 || g.profile.offset >= g.heapSize) {
+    if (!g_exactBuild) {
         g.playerValid = false;
+        g.exactPlayer = false;
+        g.playerActor = 0;
         return;
     }
 
-    Vec3 value{};
-    if (!readVec3(g.heapBase + g.profile.offset, value)) {
+    // Once an actor is resolved, the hot path only reads that actor's position.
+    // If it disappears, refreshExactPlayer(false) transitions to Resolving; the
+    // full roster lookup is then performed only by the 30-tick retry path.
+    if (g.playerActor != 0) {
+        refreshExactPlayer(false);
+    } else {
         g.playerValid = false;
-        return;
+        g.exactPlayer = false;
+        g.stage = ScanStage::Resolving;
+        g.message = "Looking for exact Player actor...";
     }
-
-    g.player = displayFromEngine(value);
-    g.playerValid = true;
-    g.exactPlayer = false;
-    g.playerActor = 0;
 }
 
 void tick() {
@@ -693,7 +536,8 @@ void tick() {
         return;
 
     ++g_healthTicks;
-    if (g_healthTicks >= 120) {
+
+    if (g_healthTicks >= HEALTH_CHECK_TICKS) {
         g_healthTicks = 0;
 
         bool hasProcess = false;
@@ -701,87 +545,42 @@ void tick() {
             hasProcess = false;
 
         if (!hasProcess) {
+            releaseOwnedProcess();
             if (R_SUCCEEDED(dmntchtForceOpenCheatProcess())) {
                 g.attachedByUs = true;
                 logMessage("Re-attached to game process.");
             } else {
-                g.playerValid = false;
-                g.message = "Game process unavailable.";
+                resetProcessState("Game process unavailable.");
                 return;
             }
         }
 
         if (!findTargetProcess()) {
-            g.playerValid = false;
-            g.playerActor = 0;
-            g.message = "Target process unavailable.";
+            releaseOwnedProcess();
+            resetProcessState("Target process unavailable.");
             return;
         }
 
-        if (g_exactBuild && !refreshExactPlayer(true)) {
-            g.playerValid = false;
-            g.playerActor = 0;
-            g.message = "Player actor not currently resolved.";
-        }
+        if (g_exactBuild)
+            refreshExactPlayer(true);
+        else
+            fail("Unsupported TOTK build. Exact coordinates unavailable.");
     }
 
-    if (g.stage == ScanStage::Scanning) {
-        // Supported builds never enter the brute-force scanner. Keep retrying
-        // the exact resident Player actor while the game finishes loading.
-        if (g_exactBuild) {
-            if ((g_healthTicks % EXACT_RETRY_TICKS) == 0) {
-                if (refreshExactPlayer(true)) {
-                    clearDiscoveryState();
-                    g.stage = ScanStage::Ready;
-                    g.message = "Exact Player actor coordinates active.";
-                } else {
-                    g.message = "Looking for exact Player actor...";
-                }
-            }
-        } else {
-            scanChunk();
-        }
+    if (g.stage == ScanStage::Resolving &&
+        g_exactBuild &&
+        (g_healthTicks % EXACT_RETRY_TICKS) == 0) {
+        if (!refreshExactPlayer(true))
+            g.message = "Looking for exact Player actor...";
     } else if (g.stage == ScanStage::Ready) {
         refreshPlayer();
     }
 }
 
-void saveProfile() {
-    if (!g.profile.valid)
-        return;
-
-    FILE* file = std::fopen(profilePath(), "wb");
-    if (!file)
-        return;
-
-    if (g.buildId.empty())
-        return;
-
-    std::fprintf(
-        file,
-        "%s %llx %.7g %.7g %.7g %d\n",
-        g.buildId.c_str(),
-        static_cast<unsigned long long>(g.profile.offset),
-        static_cast<double>(g.profile.value.x),
-        static_cast<double>(g.profile.value.y),
-        static_cast<double>(g.profile.value.z),
-        g.profile.score);
-
-    std::fclose(file);
-}
-
-void loadProfile() {
-    Profile profile{};
-    if (readProfileFile(profile))
-        g.profile = profile;
-}
-
 const char* stageText(ScanStage stage) {
     switch (stage) {
         case ScanStage::Idle: return "Ready";
-        case ScanStage::Scanning: return "Scanning";
-        case ScanStage::WaitMove: return "Walk Link / press X";
-        case ScanStage::WaitJump: return "Jump / press X";
+        case ScanStage::Resolving: return "Resolving Player actor";
         case ScanStage::Ready: return "Ready";
         case ScanStage::Failed: return "Failed";
         default: return "Unknown";
@@ -789,8 +588,6 @@ const char* stageText(ScanStage stage) {
 }
 
 std::string layerName(const Vec3& p) {
-    // Height is the third value in the overlay/database convention.
-    // Surface and Sky cannot be reliably separated by altitude alone.
     if (p.z < -100.0f)
         return "Depths";
     return "Surface/Sky";

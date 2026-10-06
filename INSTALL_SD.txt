@@ -1,4 +1,4 @@
-TOTK Explorer v3.6.1
+TOTK Explorer v3.6.2
 
 После загрузки GitHub Actions artifact распакуйте каталог `sd` в корень microSD.
 
@@ -13,7 +13,7 @@ sd:/switch/totk_explorer/points.csv
 2. Откройте Ultrahand/Tesla.
 3. Выберите TOTK Explorer.
 4. Для отдельного диагностического запуска можно открыть NRO через Homebrew Menu.
-5. Раздел Calibration лениво подключает dmnt:cht; persistent HUD переключается внутри того же overlay и не закрывает его lifecycle.
+5. Раздел Calibration использует только exact Player resolver; persistent HUD переключается внутри того же overlay и не закрывает его lifecycle.
 
 Логи:
 sd:/switch/totk_explorer/log.txt
