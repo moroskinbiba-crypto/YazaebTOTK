@@ -466,11 +466,15 @@ void startAutoScan() {
         return;
     }
 
-    resetPlayerState();
-    g.stage = ScanStage::Resolving;
     g.error.clear();
-    g.message = "Looking for exact Player actor...";
 
+    // Idempotent restart: if Player is already resolved, never tear down the
+    // valid actor just to perform the full resident-roster walk again.
+    if (g.playerActor != 0 && refreshExactPlayer(false))
+        return;
+
+    g.stage = ScanStage::Resolving;
+    g.message = "Looking for exact Player actor...";
     refreshExactPlayer(true);
 }
 
