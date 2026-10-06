@@ -1,130 +1,109 @@
-name: TOTK Explorer Build
+name: TOTK Explorer — Stage 1
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   pull_request:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   workflow_dispatch:
 
 concurrency:
-  group: totk-explorer-build
+  group: totk-explorer-stage1
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-stage1:
     runs-on: ubuntu-latest
-
     container:
-      image: devkitpro/devkita64:latest
+      image: devkitpro/devkita64:20260219
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Verify toolchain
+      - name: Verify fixed toolchain
+        shell: bash
         run: |
-          set -eux
+          set -euxo pipefail
           test -n "${DEVKITPRO}"
           test -d "${DEVKITPRO}/libnx"
           test -d "${DEVKITPRO}/devkitA64"
-          echo "--- devkitA64/bin ---"
-          ls -la "${DEVKITPRO}/devkitA64/bin" || true
-          echo "--- candidate compilers ---"
-          find "${DEVKITPRO}/devkitA64" -maxdepth 3 -type f \( -name "*g++*" -o -name "*gcc*" \) -print | head -80
-          echo "${DEVKITPRO}/devkitA64/bin" >> "$GITHUB_PATH"
+
+          echo "devkitA64:"
+          pacman -Q devkitA64
+          echo "libnx:"
+          pacman -Q libnx
+
+          test "$(pacman -Q devkitA64 | awk '{print $2}' | cut -d- -f1)" = "29.2"
+          test "$(pacman -Q libnx | awk '{print $2}' | cut -d- -f1)" = "4.12.0"
+
           command -v make
           command -v elf2nro
           test -f "${DEVKITPRO}/libnx/switch_rules"
 
-      - name: Get libultrahand
+      - name: Get pinned libultrahand/libtesla
+        shell: bash
         run: |
-          set -eux
+          set -euxo pipefail
           rm -rf /tmp/libultrahand libs/libultrahand
           git clone --filter=blob:none --no-checkout https://github.com/ppkantorski/libultrahand.git /tmp/libultrahand
           git -C /tmp/libultrahand checkout --detach 1b7a64a4d73489c870f3fb9caa9927e9a2347478
+
           mkdir -p libs/libultrahand
           cp -a /tmp/libultrahand/ultrahand.mk libs/libultrahand/
           cp -a /tmp/libultrahand/common libs/libultrahand/
           cp -a /tmp/libultrahand/libultra libs/libultrahand/
           cp -a /tmp/libultrahand/libtesla libs/libultrahand/
+
+          test "$(git -C /tmp/libultrahand rev-parse HEAD)" = "1b7a64a4d73489c870f3fb9caa9927e9a2347478"
           test -s libs/libultrahand/ultrahand.mk
           test -s libs/libultrahand/libtesla/include/tesla.hpp
-          test -s libs/libultrahand/libultra/include/ini_funcs.hpp
-          test -s libs/libultrahand/libtesla/include/stb_truetype.h
+          grep -R "TESLA" -n libs/libultrahand/libtesla/include/tesla.hpp >/dev/null
 
-      - name: Get dmnt:cht
+      - name: Verify Stage 1 shape
+        shell: bash
         run: |
-          set -eux
-          rm -rf /tmp/Shiny-Stash-Live-Map
-          git clone --filter=blob:none --no-checkout https://github.com/Insektaure/Shiny-Stash-Live-Map.git /tmp/Shiny-Stash-Live-Map
-          git -C /tmp/Shiny-Stash-Live-Map checkout --detach 548896d0cc3b5fd531bd970f0708ecda13338492
-          mkdir -p libs include/switch
-          cp /tmp/Shiny-Stash-Live-Map/lib/libdmntcht.a libs/libdmntcht.a
-          cp /tmp/Shiny-Stash-Live-Map/include/switch/dmntcht.h include/switch/dmntcht.h
-          test -s libs/libdmntcht.a
-          test -s include/switch/dmntcht.h
-
-      - name: Verify project layout
-        run: |
-          set -eux
+          set -euxo pipefail
           test -f Makefile
-          test -f data/points.csv
-          test -f include/explorer.hpp
           test -f source/main.cpp
-          test -f source/memory.cpp
-          test -f source/map.cpp
-          test -f source/ui.cpp
-          test -f source/log.cpp
-          test -f libs/libultrahand/ultrahand.mk
-          test -d libs/libultrahand/common
-          test -d libs/libultrahand/libultra/source
-          test -f libs/libultrahand/libtesla/include/tesla.hpp
+          test "$(find source -maxdepth 1 -type f -name '*.cpp' | wc -l)" -eq 1
+          test "$(find source -maxdepth 1 -type f \( -name 'memory.cpp' -o -name 'map.cpp' -o -name 'ui.cpp' -o -name 'log.cpp' \) | wc -l)" -eq 0
+          test "$(find . -maxdepth 2 -type f -name 'explorer.hpp' | wc -l)" -eq 0
+          ! grep -R -E "dmntcht|PersistentHudGui|requestForeground|setNextOverlay|heap scan|Player actor|nearby\(" source include 2>/dev/null
+          grep -F 'KEY_B' source/main.cpp >/dev/null
+          grep -F 'TOTK Explorer' source/main.cpp >/dev/null
 
-      - name: Build
+      - name: Build Stage 1
+        shell: bash
         run: |
-          set -eux
-          python3 tools/verify_repo.py
-          python3 tools/logic_tests.py
+          set -euxo pipefail
           make clean
           make -j2
-          test -s TOTK-Explorer-v3.nro
-          test -s TOTK-Explorer-v3.ovl
-          cp TOTK-Explorer-v3.nro /tmp/TOTK-Explorer-v3.nro
-          awk -F, 'NF && !/^#/ { if (NF != 6) exit 1; n++ } END { if (n != 152) exit 1 }' data/points.csv
-          awk -F, 'NF && !/^#/ && $6 !~ /^(Surface|Sky|Depths)$/ { exit 1 }' data/points.csv
-          awk -F, 'NF && $2 == "Kyononis Shrine" { if ($3 != -205 || $4 != 451 || $5 != 35 || $6 != "Surface") exit 1; found=1 } END { if (!found) exit 1 }' data/points.csv
-          awk -F, 'NF && $2 == "Ukouh Shrine" { if ($3 != 275 || $4 != -913 || $5 != 1474 || $6 != "Sky") exit 1; found=1 } END { if (!found) exit 1 }' data/points.csv
-          test "$(grep -cv '^#' data/points.csv)" -eq 152
-          test "$(tail -c 4 TOTK-Explorer-v3.nro | wc -c)" -eq 4
+
+          test -s TOTK-Explorer.nro
+          test -s TOTK-Explorer.ovl
+
           printf 'ULTR' > /tmp/ultr_signature
-          tail -c 4 TOTK-Explorer-v3.ovl | cmp - /tmp/ultr_signature
-          test "$(stat -c%s TOTK-Explorer-v3.ovl)" -eq "$(( $(stat -c%s TOTK-Explorer-v3.nro) + 4 ))"
-          cmp -n "$(stat -c%s TOTK-Explorer-v3.nro)" TOTK-Explorer-v3.nro TOTK-Explorer-v3.ovl
-          strings -a TOTK-Explorer-v3.nro | grep -F "TOTK Explorer" >/dev/null
-          strings -a TOTK-Explorer-v3.nro | grep -F "3.6.2" >/dev/null
+          tail -c 4 TOTK-Explorer.ovl | cmp - /tmp/ultr_signature
+          test "$(stat -c%s TOTK-Explorer.ovl)" -eq "$(( $(stat -c%s TOTK-Explorer.nro) + 4 ))"
+          cmp -n "$(stat -c%s TOTK-Explorer.nro)" TOTK-Explorer.nro TOTK-Explorer.ovl
+
+          strings -a TOTK-Explorer.nro | grep -F "TOTK Explorer" >/dev/null
+          strings -a TOTK-Explorer.nro | grep -F "Stage 1" >/dev/null
+          ! strings -a TOTK-Explorer.nro | grep -E "dmnt:cht|PersistentHudGui|Resolver step|Player actor" >/dev/null
 
       - name: Package
+        shell: bash
         run: |
-          set -eux
+          set -euxo pipefail
           rm -rf artifact
           mkdir -p artifact/sd/switch/.overlays
-          cp TOTK-Explorer-v3.ovl artifact/sd/switch/.overlays/
-          mkdir -p artifact/sd/switch/totk_explorer
-          cp TOTK-Explorer-v3.nro artifact/sd/switch/totk_explorer/
-          cp data/points.csv artifact/sd/switch/totk_explorer/
-          test -s artifact/sd/switch/.overlays/TOTK-Explorer-v3.ovl
-          test -s artifact/sd/switch/totk_explorer/points.csv
-          test -s artifact/sd/switch/totk_explorer/TOTK-Explorer-v3.nro
-          test -s artifact/sd/switch/.overlays/TOTK-Explorer-v3.ovl
+          cp TOTK-Explorer.ovl artifact/sd/switch/.overlays/
+          test -s artifact/sd/switch/.overlays/TOTK-Explorer.ovl
 
       - name: Upload
         uses: actions/upload-artifact@v7
         with:
-          name: TOTK-Explorer-v3
+          name: TOTK-Explorer-stage1
           path: artifact
           include-hidden-files: true

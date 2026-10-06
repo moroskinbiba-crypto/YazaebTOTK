@@ -1,29 +1,32 @@
-TOTK Explorer v3.6.2 audit
+TOTK Explorer Stage 1 — minimal Tesla baseline
 
-Проверено:
-- сборка использует libultrahand;
-- libultrahand pinned на commit, совпадающий с Tetris Overlay;
-- NACP передаётся в elf2nro;
-- итоговый .ovl содержит ULTR в последних 4 байтах;
-- .ovl начинается с точной копии собранного .nro;
-- CI проверяет 152 строки points.csv и допустимые layer значения;
-- dmnt:cht инициализируется лениво после GUI;
-- переход в persistent HUD не закрывает overlay lifecycle и не рвёт dmnt:cht; обычное закрытие overlay всё ещё освобождает сервис;
-- initMemory() очищает частично инициализированный dmnt:cht после ошибки attach/process discovery;
-- на поддерживаемых builds Calibration использует только exact Player resolver;
-- brute-force heap scan и сохранённый heuristic profile path удалены из runtime;
-- старый actor state сбрасывается при смене PID/base;
-- fallback scanner удалён из runtime;
-- Map HUD не использует недоступные в pinned libultrahand глобальные API;
-- verifier синхронизирован с 3.6.2;
-- persistent HUD работает внутри одного overlay через `tsl::changeTo<PersistentHudGui>()`, без `setNextOverlay()` и второго `--hud` entrypoint;
-- persistent HUD нормализует layer position и обновляет nearby cache вне render callback;
-- HUD отдаёт input focus игре через `tsl::hlp::requestForeground(false)` и продолжает обновляться после скрытия меню;
-- HUD имеет явное закрытие `L + R + Minus`.
+Статус:
+- Исходный runtime 3.6.2 удалён из рабочей ветки.
+- В Stage 1 компилируется только source/main.cpp и pinned libultrahand/libtesla.
+- dmnt:cht не подключается.
+- Нет memory resolver, heap scan, Player actor, карты, CSV runtime и persistent HUD.
+- Выход реализован только через KEY_B.
 
-Не проверяется физически:
-- реальный runtime на Switch;
-- корректность конкретных координатных offsets вне перечисленных builds;
-- фактическое отображение overlay в конкретной установленной версии Ultrahand/nx-ovlloader;
+Зафиксировано:
+- devkitPro container: devkitpro/devkita64:20260219
+- devkitA64: r29.2
+- libnx: 4.12.0
+- libultrahand/libtesla: 1b7a64a4d73489c870f3fb9caa9927e9a2347478
 
-CI note: pull-request validation is enabled in the base workflow.
+CI проверяет:
+- exact toolchain versions;
+- exact libultrahand commit;
+- только один проектный .cpp;
+- отсутствие старого runtime API;
+- успешную сборку NRO/OVL;
+- ULTR signature и NRO-prefix;
+- наличие строк Stage 1.
+
+НЕ ПРОВЕРЕНО И НЕ СЧИТАЕТСЯ ДОКАЗАННЫМ:
+- запуск на физической Switch;
+- прошивка 22.5.0;
+- Atmosphere 1.11.2;
+- реальное закрытие по B;
+- поведение в открытой игре.
+
+Следующий этап начинается только после hardware-подтверждения Stage 1.
