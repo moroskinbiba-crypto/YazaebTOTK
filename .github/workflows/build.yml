@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - master
+  pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 concurrency:
@@ -85,6 +89,7 @@ jobs:
         run: |
           set -eux
           python3 tools/verify_repo.py
+          python3 tools/logic_tests.py
           make clean
           make -j2
           test -s TOTK-Explorer-v3.nro
