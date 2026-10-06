@@ -47,9 +47,19 @@ for needle in [
         errors.append(f"Makefile missing: {needle}")
 
 source = (root / 'source/memory.cpp').read_text(encoding='utf-8')
-for needle in ['MAX_CANDIDATES = 4096', 'addReservoirCandidate', 'dmntchtInitialize()', 'dmntchtExit()']:
+for needle in [
+    'MAX_CANDIDATES = 65536',
+    'EXACT_RETRY_TICKS = 30',
+    'clearDiscoveryState()',
+    'dmntchtInitialize()',
+    'dmntchtExit()',
+    'Result ensureMemory()',
+]:
     if needle not in source:
-        errors.append(f"memory.cpp missing: {needle}")
+        errors.append(f'memory.cpp missing: {needle}')
+
+if 'addReservoirCandidate' in source or 'rngState' in source:
+    errors.append('memory.cpp still contains unreliable reservoir scanner state')
 
 main = (root / 'source/main.cpp').read_text(encoding='utf-8')
 if 'initMemory()' in main:
