@@ -137,13 +137,8 @@ for needle in [
     if needle not in ui:
         errors.append(f"ui.cpp missing: {needle}")
 
-if "close();
-                return true;
-            }
-            return false;
-        });
-        list->addItem(map);" in ui:
-    errors.append("Map HUD still closes the overlay when enabling")
+if "tsl::setNextOverlay(" in ui or '"--hud"' in ui:
+    errors.append("Map HUD still uses a second overlay entrypoint")
 
 points_lines = [
     line.strip()
