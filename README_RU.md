@@ -1,4 +1,4 @@
-# TOTK Explorer v3.4.3 — graphical Map HUD
+# TOTK Explorer v3.4.3 — Map HUD
 
 Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -12,7 +12,7 @@ Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom
 ## Текущий архитектурный статус
 
 - Сборка использует libultrahand; для CI и setup pinned commit соответствует submodule текущего Tetris Overlay: `1b7a64a4d73489c870f3fb9caa9927e9a2347478`.
-- `dmnt:cht` не инициализируется до появления GUI. Сервис подключается лениво при выборе Player Coordinates и освобождается в `exitServices()`.
+- `dmnt:cht` подключается лениво; при закрытии overlay сервис освобождается, а при повторном открытии Calibration/Map HUD автоматически переподключает его и продолжает состояние discovery.
 - CI собирает обычный `TOTK-Explorer-v3.nro` и overlay `TOTK-Explorer-v3.ovl`.
 - `.ovl` строится как тот же NRO плюс последние 4 байта `ULTR`.
 - NACP встраивается в NRO через `NROFLAGS --nacp`. Это важно для Ultrahand: при сканировании `*.ovl` он читает NRO header, asset header и NACP, а затем получает имя/версию overlay.
@@ -22,7 +22,7 @@ Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom
 
 Основной путь координат — exact resolver актёра `Player` для builds 1.4.0-1.4.3: профиль выбирается по BID, затем находится resident actor с именем `Player`, после чего читается его позиция.
 
-Эвристический сканер сохранён как fallback для неподдерживаемых builds и при отказе exact resolver. Он ищет тройки `float` в памяти процесса и фильтрует их по движению и изменению высоты.
+Эвристический сканер сохранён как fallback для неподдерживаемых builds и при временном отказе exact resolver. Для поддерживаемых 1.4.0-1.4.3 exact resolver периодически повторяется во время сканирования, поэтому готовый resident actor подхватывается без нового полного прохода.
 
 Переход между игровыми процессами обрабатывается безопасно: при смене PID/base старые actor/profile данные сбрасываются.
 
@@ -74,5 +74,7 @@ sd:/switch/totk_explorer/points.csv
 Для Ultrahand используется `TOTK-Explorer-v3.ovl`.
 
 Для отдельной проверки через Homebrew Menu можно запускать `TOTK-Explorer-v3.nro`.
+
+Map HUD использует только API pinned libultrahand и больше не зависит от недоступных глобальных `backgroundColor/FullMode/deactivateOriginalFooter`.
 
 Физическая проверка на Switch всё равно обязательна: CI подтверждает сборку и структуру NRO/OVL, но не заменяет runtime-тест на консоли.
