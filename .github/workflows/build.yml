@@ -42,19 +42,24 @@ jobs:
           command -v elf2nro
           test -f "${DEVKITPRO}/libnx/switch_rules"
 
-      - name: Install pinned dependency family from devkitPro repo
+      - name: Install pinned libultrahand portlibs
         shell: bash
         run: |
           set -euxo pipefail
-          dkp-pacman -S --needed --noconfirm             switch-curl             switch-zlib             switch-minizip             switch-mbedtls
+          # libultrahand documents curl/zlib/mbedtls as required portlibs.
+          # Current devkitPro packages minizip inside switch-zlib, not as a
+          # separate switch-minizip package.
+          dkp-pacman -S --needed --noconfirm             switch-curl             switch-zlib             switch-mbedtls
 
           echo "Installed libultrahand dependency family:"
-          dkp-pacman -Q switch-curl switch-zlib switch-minizip switch-mbedtls
+          dkp-pacman -Q switch-curl switch-zlib switch-mbedtls
 
           test -s "${DEVKITPRO}/portlibs/switch/include/curl/curl.h"
           test -s "${DEVKITPRO}/portlibs/switch/include/zlib.h"
           test -s "${DEVKITPRO}/portlibs/switch/include/minizip/unzip.h"
+          test -s "${DEVKITPRO}/portlibs/switch/lib/libminizip.a"
           test -s "${DEVKITPRO}/portlibs/switch/include/mbedtls/ssl.h"
+          test -s "${DEVKITPRO}/portlibs/switch/lib/libmbedcrypto.a"
 
       - name: Get pinned libultrahand/libtesla
         shell: bash
