@@ -13,14 +13,14 @@ sd:/switch/totk_explorer/points.csv
 2. Откройте Ultrahand/Tesla.
 3. Выберите TOTK Explorer.
 4. Для отдельного диагностического запуска можно открыть NRO через Homebrew Menu.
-5. Раздел Calibration лениво подключает dmnt:cht; после закрытия overlay он переподключается автоматически при повторном входе.
+5. Раздел Calibration лениво подключает dmnt:cht; persistent HUD переключается внутри того же overlay и не закрывает его lifecycle.
 
 Логи:
 sd:/switch/totk_explorer/log.txt
 
 Overlay read-only: запись в память игры не выполняется.
 
-Choose `Map HUD (persistent)` to launch the persistent HUD mode. The main menu closes, but the map/statistics panel stays over the game.
+Choose `Map HUD (persistent)` to switch the current Tesla GUI into persistent HUD mode. The overlay itself stays alive, so the map/statistics panel remains over the game.
 
 HUD contents: live player coordinates, world layer, coordinate source, nearby database points and nearest point.
 
