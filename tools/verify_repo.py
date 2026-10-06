@@ -72,9 +72,12 @@ if 'TotkExplorerHudOverlay' not in main:
     errors.append('main.cpp missing persistent HUD overlay class')
 
 ui = (root / 'source/ui.cpp').read_text(encoding='utf-8')
-for forbidden in ['::backgroundColor', '::FullMode', '::deactivateOriginalFooter']:
+for forbidden in [
+    '::backgroundColor', '::FullMode', '::deactivateOriginalFooter',
+    'tsl::gfx::Color', 'drawRoundRect(', 'hidScanInput(', 'CONTROLLER_P1_AUTO',
+]:
     if forbidden in ui:
-        errors.append(f'ui.cpp uses unavailable libultrahand API: {forbidden}')
+        errors.append(f'ui.cpp uses incompatible persistent-HUD API: {forbidden}')
 if 'ex::ensureMemory();' not in ui:
     errors.append('ui.cpp missing dmnt reconnect on GUI resume')
 if 'tsl::setNextOverlay(path, "--hud")' not in ui:

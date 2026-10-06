@@ -167,17 +167,17 @@ class PersistentHudGui final : public tsl::Gui {
     static constexpr s32 MARGIN = 18;
     static constexpr float RADIUS = 1800.0f;
 
-    static tsl::gfx::Color bgColor() { return {1, 1, 2, 11}; }
-    static tsl::gfx::Color panelColor() { return {1, 1, 2, 10}; }
-    static tsl::gfx::Color gridColor() { return {7, 7, 9, 7}; }
-    static tsl::gfx::Color textColor() { return {15, 15, 15, 15}; }
-    static tsl::gfx::Color mutedColor() { return {9, 10, 12, 13}; }
-    static tsl::gfx::Color playerColor() { return {5, 14, 15, 15}; }
-    static tsl::gfx::Color shrineColor() { return {14, 12, 3, 15}; }
-    static tsl::gfx::Color korokColor() { return {6, 13, 6, 15}; }
-    static tsl::gfx::Color lightrootColor() { return {7, 10, 15, 15}; }
-    static tsl::gfx::Color towerColor() { return {13, 6, 13, 15}; }
-    static tsl::gfx::Color genericColor() { return {12, 12, 12, 15}; }
+    static tsl::Color bgColor() { return {1, 1, 2, 11}; }
+    static tsl::Color panelColor() { return {1, 1, 2, 10}; }
+    static tsl::Color gridColor() { return {7, 7, 9, 7}; }
+    static tsl::Color textColor() { return {15, 15, 15, 15}; }
+    static tsl::Color mutedColor() { return {9, 10, 12, 13}; }
+    static tsl::Color playerColor() { return {5, 14, 15, 15}; }
+    static tsl::Color shrineColor() { return {14, 12, 3, 15}; }
+    static tsl::Color korokColor() { return {6, 13, 6, 15}; }
+    static tsl::Color lightrootColor() { return {7, 10, 15, 15}; }
+    static tsl::Color towerColor() { return {13, 6, 13, 15}; }
+    static tsl::Color genericColor() { return {12, 12, 12, 15}; }
 
     static char marker(const ex::Point& point) {
         if (point.type == "Shrine") return 'S';
@@ -187,7 +187,7 @@ class PersistentHudGui final : public tsl::Gui {
         return '*';
     }
 
-    static tsl::gfx::Color markerColor(const ex::Point& point) {
+    static tsl::Color markerColor(const ex::Point& point) {
         if (point.type == "Shrine") return shrineColor();
         if (point.type == "Korok") return korokColor();
         if (point.type == "Lightroot") return lightrootColor();
@@ -234,8 +234,7 @@ class PersistentHudGui final : public tsl::Gui {
         const s32 centerX = x + MAP_SIZE / 2;
         const s32 centerY = y + MAP_SIZE / 2;
 
-        renderer->drawRoundRect(x, y, MAP_SIZE, MAP_SIZE, 0.20f, 0.20f, 0.20f, 0.20f,
-                                renderer->a(panelColor()));
+        renderer->drawRoundedRect(x, y, MAP_SIZE, MAP_SIZE, 18, renderer->a(panelColor()));
         renderer->drawEmptyRect(x, y, MAP_SIZE, MAP_SIZE, renderer->a(gridColor()));
 
         constexpr s32 rings[] = {45, 90, 135};
@@ -269,8 +268,14 @@ class PersistentHudGui final : public tsl::Gui {
 
 public:
     PersistentHudGui() {
-        // The HUD stays visible while the game receives normal controller input.
+        // Keep the HUD visible while normal controller input belongs to the game.
+        tsl::disableHiding = true;
         tsl::hlp::requestForeground(false);
+    }
+
+    ~PersistentHudGui() override {
+        tsl::disableHiding = false;
+        tsl::hlp::requestForeground(true);
     }
 
     tsl::elm::Element* createUI() override {
@@ -286,8 +291,7 @@ public:
                 const s32 mapX = baseX + MARGIN + 32;
                 const s32 mapY = baseY + 92;
 
-                renderer->drawRoundRect(baseX, baseY, PANEL_W, PANEL_H, 0.16f, 0.16f, 0.16f, 0.16f,
-                                        renderer->a(bgColor()));
+                renderer->drawRoundedRect(baseX, baseY, PANEL_W, PANEL_H, 18, renderer->a(bgColor()));
 
                 renderer->drawString("TOTK EXPLORER", false, baseX + MARGIN, baseY + 20, 20.0f,
                                      renderer->a(textColor()));
@@ -334,19 +338,14 @@ public:
     }
 
     void update() override {
-        // Game input is foreground, so poll for the explicit close chord directly.
-        hidScanInput();
-        const u64 keysDown = hidKeysDown(CONTROLLER_P1_AUTO);
-        const u64 keysHeld = hidKeysHeld(CONTROLLER_P1_AUTO);
-        if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) && (keysDown & KEY_MINUS)) {
-            tsl::Overlay::get()->close();
-            return;
-        }
-
         ex::tick();
     }
 
-    bool handleInput(u64, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
+    bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
+        if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) && (keysDown & KEY_MINUS)) {
+            tsl::Overlay::get()->close();
+            return true;
+        }
         return false;
     }
 };
