@@ -1,4 +1,4 @@
-# TOTK Explorer v3.4.3 — Map HUD
+# TOTK Explorer v3.5.0 — Persistent Map HUD
 
 Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -17,6 +17,7 @@ Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom
 - `.ovl` строится как тот же NRO плюс последние 4 байта `ULTR`.
 - NACP встраивается в NRO через `NROFLAGS --nacp`. Это важно для Ultrahand: при сканировании `*.ovl` он читает NRO header, asset header и NACP, а затем получает имя/версию overlay.
 - NRO остаётся доступным как отдельный диагностический вариант для запуска через Homebrew Menu.
+- `Map HUD (persistent)` запускает тот же `.ovl` вторым режимом `--hud`, поэтому закрытие обычного меню не закрывает HUD.
 
 ## Координаты
 
@@ -75,6 +76,6 @@ sd:/switch/totk_explorer/points.csv
 
 Для отдельной проверки через Homebrew Menu можно запускать `TOTK-Explorer-v3.nro`.
 
-Map HUD использует только API pinned libultrahand и больше не зависит от недоступных глобальных `backgroundColor/FullMode/deactivateOriginalFooter`.
+Persistent HUD использует отдельный запуск `--hud`, `tsl::setNextOverlay()` и `tsl::hlp::requestForeground(false)`: меню исчезает, а карта остаётся поверх игры и продолжает обновляться. Выход из HUD: `L + R + Minus`.
 
 Физическая проверка на Switch всё равно обязательна: CI подтверждает сборку и структуру NRO/OVL, но не заменяет runtime-тест на консоли.
