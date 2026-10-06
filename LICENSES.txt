@@ -1,3 +1,16 @@
-TOTK Explorer source: project-specific files.
-libtesla: GPL-2.0, obtained from WerWolv/libtesla during the build workflow.
-dmnt:cht wrapper library/header: license and provenance follow the upstream dependency used by tools/setup_deps.sh (Insektaure/Shiny-Stash-Live-Map / Atmosphere dmnt API).
+TOTK Explorer — Stage 1 licenses
+
+Project:
+- TOTK Explorer source: project-specific files.
+
+Bundled dependency:
+- libultrahand/libtesla snapshot:
+  commit 1b7a64a4d73489c870f3fb9caa9927e9a2347478
+  Upstream licensing/provenance is preserved in the fetched dependency tree during CI.
+
+Stage 1 does not include or use:
+- dmnt:cht;
+- dmnt wrapper headers/libraries;
+- memory resolver code;
+- map runtime code;
+- legacy setup scripts.
