@@ -1,4 +1,4 @@
-# TOTK Explorer v3.5.0 — Persistent Map HUD
+# TOTK Explorer v3.6.0 — Persistent Map HUD
 
 Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -12,12 +12,12 @@ Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom
 ## Текущий архитектурный статус
 
 - Сборка использует libultrahand; для CI и setup pinned commit соответствует submodule текущего Tetris Overlay: `1b7a64a4d73489c870f3fb9caa9927e9a2347478`.
-- `dmnt:cht` подключается лениво; при закрытии overlay сервис освобождается, а при повторном открытии Calibration/Map HUD автоматически переподключает его и продолжает состояние discovery.
+- `dmnt:cht` подключается лениво и остаётся в том же overlay lifecycle при переходе в persistent HUD. При обычном закрытии overlay сервис корректно освобождается.
 - CI собирает обычный `TOTK-Explorer-v3.nro` и overlay `TOTK-Explorer-v3.ovl`.
 - `.ovl` строится как тот же NRO плюс последние 4 байта `ULTR`.
 - NACP встраивается в NRO через `NROFLAGS --nacp`. Это важно для Ultrahand: при сканировании `*.ovl` он читает NRO header, asset header и NACP, а затем получает имя/версию overlay.
 - NRO остаётся доступным как отдельный диагностический вариант для запуска через Homebrew Menu.
-- `Map HUD (persistent)` запускает тот же `.ovl` вторым режимом `--hud`, поэтому закрытие обычного меню не закрывает HUD.
+- `Map HUD (persistent)` переключает GUI внутри уже запущенного Tesla overlay через `tsl::changeTo<PersistentHudGui>()`; overlay не закрывается, поэтому его слой продолжает рисоваться поверх игры.
 
 ## Координаты
 
@@ -76,6 +76,6 @@ sd:/switch/totk_explorer/points.csv
 
 Для отдельной проверки через Homebrew Menu можно запускать `TOTK-Explorer-v3.nro`.
 
-Persistent HUD использует отдельный запуск `--hud`, `tsl::setNextOverlay()` и `tsl::hlp::requestForeground(false)`: меню исчезает, а карта остаётся поверх игры и продолжает обновляться. Выход из HUD: `L + R + Minus`.
+Persistent HUD работает по схеме Status Monitor: `tsl::changeTo<PersistentHudGui>()` + `tsl::hlp::requestForeground(false)`. Главное меню исчезает, а Tesla overlay продолжает жить и карта остаётся поверх игры. Выход из HUD: `L + R + Minus`.
 
-Физическая проверка на Switch всё равно обязательна: CI подтверждает сборку и структуру NRO/OVL, но не заменяет runtime-тест на консоли.
+Физическая проверка на Switch обязательна: CI подтверждает сборку и структуру NRO/OVL, но не заменяет runtime-тест на консоли.
