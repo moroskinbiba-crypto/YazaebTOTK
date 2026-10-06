@@ -125,6 +125,23 @@ void resetPlayerState() {
     g.exactPlayer = false;
 }
 
+void resetProcessState(const char* message) {
+    resetPlayerState();
+    g.processId = 0;
+    g.mainBase = 0;
+    g.mainSize = 0;
+    g.heapBase = 0;
+    g.heapSize = 0;
+    g_gameProfile = nullptr;
+    g_exactBuild = false;
+    g.buildIdMatched = false;
+    g.gameVersion = "unknown";
+    g.buildId = "—";
+    g.stage = ScanStage::Failed;
+    g.error = message ? message : "Game process unavailable.";
+    g.message = g.error;
+}
+
 bool findTargetProcess() {
     if (R_FAILED(dmntchtGetCheatProcessMetadata(&g_meta)))
         return false;
@@ -401,7 +418,7 @@ Result initMemory() {
         dmntchtExit();
         g_dmntInitialized = false;
         g.dmntReady = false;
-        resetPlayerState();
+        resetProcessState(message);
         fail(message);
         return result;
     };
@@ -453,6 +470,7 @@ void shutdownMemory() {
     }
 
     g.dmntReady = false;
+    resetProcessState("Game process unavailable.");
 }
 
 void startAutoScan() {
@@ -527,20 +545,18 @@ void tick() {
             hasProcess = false;
 
         if (!hasProcess) {
+            g.attachedByUs = false;
             if (R_SUCCEEDED(dmntchtForceOpenCheatProcess())) {
                 g.attachedByUs = true;
                 logMessage("Re-attached to game process.");
             } else {
-                g.playerValid = false;
-                g.message = "Game process unavailable.";
+                resetProcessState("Game process unavailable.");
                 return;
             }
         }
 
         if (!findTargetProcess()) {
-            g.playerValid = false;
-            g.playerActor = 0;
-            g.message = "Target process unavailable.";
+            resetProcessState("Target process unavailable.");
             return;
         }
 
