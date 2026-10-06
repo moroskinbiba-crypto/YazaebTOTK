@@ -86,6 +86,10 @@ class CalibrationGui final : public tsl::Gui {
 
 public:
     tsl::elm::Element* createUI() override {
+        // Re-opened overlays lose dmnt:cht in exitServices(); reconnect before
+        // resuming a pending WaitMove/WaitJump calibration step.
+        ex::ensureMemory();
+
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Calibration");
         auto* list = new tsl::elm::List();
 
@@ -149,10 +153,6 @@ class MapHudGui final : public tsl::Gui {
     static constexpr s32 MAP_SIZE = 210;
     static constexpr s32 MARGIN = 12;
     static constexpr float RADIUS = 1500.0f;
-
-    const u16 oldBackgroundColor = ::backgroundColor;
-    const bool oldFullMode = ::FullMode;
-    const bool oldFooter = ::deactivateOriginalFooter;
 
     static tsl::gfx::Color bgColor() { return {1, 1, 2, 11}; }
     static tsl::gfx::Color panelColor() { return {1, 1, 2, 10}; }
@@ -250,21 +250,10 @@ class MapHudGui final : public tsl::Gui {
     }
 
 public:
-    MapHudGui() {
-        ::backgroundColor = 0x0000;
-        ::FullMode = false;
-        ::deactivateOriginalFooter = true;
-        tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
-    }
-
-    ~MapHudGui() override {
-        ::backgroundColor = oldBackgroundColor;
-        ::FullMode = oldFullMode;
-        ::deactivateOriginalFooter = oldFooter;
-    }
-
     tsl::elm::Element* createUI() override {
-        auto* rootFrame = new tsl::elm::OverlayFrame("", "");
+        ex::ensureMemory();
+
+        auto* rootFrame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Map HUD");
         auto* drawer = new tsl::elm::CustomDrawer(
             [](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
                 const auto& state = ex::state();
