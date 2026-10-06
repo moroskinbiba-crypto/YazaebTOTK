@@ -98,6 +98,8 @@ for forbidden in [
 
 if "g.stage == ScanStage::Ready" not in memory or "refreshPlayer();" not in memory:
     errors.append("memory.cpp missing Ready hot path")
+if "if (g.playerActor != 0 && refreshExactPlayer(false))" not in memory:
+    errors.append("memory.cpp Start/Refresh path is not idempotent")
 if "g.stage = ScanStage::Resolving;" not in memory:
     errors.append("memory.cpp missing resolver recovery state")
 
