@@ -1,4 +1,4 @@
-TOTK Explorer v3.4.3
+TOTK Explorer v3.5.0
 
 После загрузки GitHub Actions artifact распакуйте каталог `sd` в корень microSD.
 
@@ -20,4 +20,8 @@ sd:/switch/totk_explorer/log.txt
 
 Overlay read-only: запись в память игры не выполняется.
 
-Open `Map HUD` from the overlay menu to show the graphical map panel. Press B to close the HUD.
+Choose `Map HUD (persistent)` to launch the persistent HUD mode. The main menu closes, but the map/statistics panel stays over the game.
+
+HUD contents: live player coordinates, world layer, coordinate source, nearby database points and nearest point.
+
+Close HUD with `L + R + Minus`.
