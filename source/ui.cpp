@@ -43,24 +43,11 @@ std::string hexText(u64 value) {
 
 class CalibrationGui final : public tsl::Gui {
     tsl::elm::ListItem* stageItem{};
-    tsl::elm::ListItem* progressItem{};
-    tsl::elm::ListItem* candidatesItem{};
     tsl::elm::ListItem* instructionItem{};
 
     void refresh() {
         const auto& state = ex::state();
         stageItem->setValue(ex::stageText(state.stage));
-
-        if (state.heapSize > 0) {
-            const double pct = 100.0 * static_cast<double>(state.scanned) / static_cast<double>(state.heapSize);
-            char progress[48]{};
-            std::snprintf(progress, sizeof(progress), "%.0f%%", pct);
-            progressItem->setValue(progress);
-        } else {
-            progressItem->setValue("0%");
-        }
-
-        candidatesItem->setValue(std::to_string(state.candidates));
 
         switch (state.stage) {
             case ex::ScanStage::Scanning:
@@ -94,12 +81,8 @@ public:
         auto* list = new tsl::elm::List();
 
         stageItem = new tsl::elm::ListItem("Step");
-        progressItem = new tsl::elm::ListItem("Progress");
-        candidatesItem = new tsl::elm::ListItem("Candidates");
         instructionItem = new tsl::elm::ListItem("Instruction");
         list->addItem(stageItem);
-        list->addItem(progressItem);
-        list->addItem(candidatesItem);
         list->addItem(instructionItem);
 
         auto* start = new tsl::elm::ListItem("Start / Restart");
@@ -112,9 +95,6 @@ public:
         });
         list->addItem(start);
 
-        list->addItem(new tsl::elm::ListItem("X = capture step"));
-        list->addItem(new tsl::elm::ListItem("Y = reset"));
-
         frame->setContent(list);
         refresh();
         return frame;
@@ -126,14 +106,6 @@ public:
     }
 
     bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & KEY_X) {
-            if (ex::state().stage == ex::ScanStage::WaitMove)
-                ex::captureMove();
-            else if (ex::state().stage == ex::ScanStage::WaitJump)
-                ex::captureJump();
-            return true;
-        }
-
         if (keysDown & KEY_Y) {
             ex::resetScan();
             return true;
@@ -253,6 +225,9 @@ class PersistentHudGui final : public tsl::Gui {
         renderer->drawCircle(centerX, centerY, 11, false, renderer->a(playerColor()));
     }
 
+    std::vector<ex::Point> cachedPoints{};
+    u32 nearbyRefreshTicks = 0;
+
 public:
     PersistentHudGui() {
         // Keep this GUI inside the same Tesla overlay instance, exactly like
@@ -271,8 +246,10 @@ public:
         ex::ensureMemory();
 
         auto* rootFrame = new tsl::elm::OverlayFrame("", "");
+        cachedPoints = ex::nearby(RADIUS, 32);
+
         auto* drawer = new tsl::elm::CustomDrawer(
-            [](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
+            [this](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
                 const auto& state = ex::state();
 
                 const s32 baseX = tsl::cfg::FramebufferWidth - PANEL_W - 16;
@@ -302,12 +279,11 @@ public:
                                          baseX + MARGIN, baseY + 74, 12.0f,
                                          renderer->a(mutedColor()));
 
-                    const auto points = ex::nearby(RADIUS, 32);
-                    drawMap(renderer, state, points, mapX, mapY);
+                    drawMap(renderer, state, cachedPoints, mapX, mapY);
 
                     char nearbyTextBuffer[64]{};
                     std::snprintf(nearbyTextBuffer, sizeof(nearbyTextBuffer),
-                                  "Nearby: %zu points", points.size());
+                                  "Nearby: %zu points", cachedPoints.size());
                     renderer->drawString(nearbyTextBuffer, false,
                                          baseX + MARGIN, baseY + PANEL_H - 72, 13.0f,
                                          renderer->a(textColor()));
@@ -328,6 +304,11 @@ public:
 
     void update() override {
         ex::tick();
+
+        if (++nearbyRefreshTicks >= 10) {
+            nearbyRefreshTicks = 0;
+            cachedPoints = ex::nearby(RADIUS, 32);
+        }
     }
 
     bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
