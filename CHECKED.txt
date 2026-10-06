@@ -1,4 +1,4 @@
-TOTK Explorer v3.4.3 audit
+TOTK Explorer v3.5.0 audit
 
 Проверено:
 - сборка использует libultrahand;
@@ -14,7 +14,10 @@ TOTK Explorer v3.4.3 audit
 - старые actor/profile/candidate данные сбрасываются при смене PID/base;
 - fallback scanner больше не использует случайный reservoir sampling;
 - Map HUD не использует недоступные в pinned libultrahand глобальные API;
-- verifier синхронизирован с 3.4.3.
+- verifier синхронизирован с 3.5.0;
+- persistent HUD запускается вторым режимом `--hud` через `setNextOverlay`;
+- HUD отдаёт input focus игре и обновляется после закрытия обычного меню;
+- HUD имеет явное закрытие `L + R + Minus`.
 
 Не проверяется физически:
 - реальный runtime на Switch;
