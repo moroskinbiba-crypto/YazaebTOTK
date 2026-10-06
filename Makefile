@@ -19,7 +19,9 @@ SOURCES := source
 INCLUDES :=
 
 # Exact libultrahand/libtesla snapshot, fetched by CI.
+# ultrahand.mk appends its common/libultra/libtesla source and include paths.
 include $(TOPDIR)/libs/libultrahand/ultrahand.mk
+
 NO_ICON := 1
 
 ifeq ($(strip $(NO_NACP)),)
