@@ -125,6 +125,13 @@ void resetPlayerState() {
     g.exactPlayer = false;
 }
 
+void releaseOwnedProcess() {
+    if (g.attachedByUs) {
+        dmntchtForceCloseCheatProcess();
+        g.attachedByUs = false;
+    }
+}
+
 void resetProcessState(const char* message) {
     resetPlayerState();
     g.processId = 0;
@@ -410,11 +417,7 @@ Result initMemory() {
     logMessage("dmnt:cht initialized.");
 
     auto cleanupAfterFailure = [&](const char* message, Result result) {
-        if (g.attachedByUs) {
-            dmntchtForceCloseCheatProcess();
-            g.attachedByUs = false;
-        }
-
+        releaseOwnedProcess();
         dmntchtExit();
         g_dmntInitialized = false;
         g.dmntReady = false;
@@ -459,10 +462,7 @@ Result initMemory() {
 void shutdownMemory() {
     g_healthTicks = 0;
 
-    if (g.attachedByUs) {
-        dmntchtForceCloseCheatProcess();
-        g.attachedByUs = false;
-    }
+    releaseOwnedProcess();
 
     if (g_dmntInitialized) {
         dmntchtExit();
@@ -545,7 +545,7 @@ void tick() {
             hasProcess = false;
 
         if (!hasProcess) {
-            g.attachedByUs = false;
+            releaseOwnedProcess();
             if (R_SUCCEEDED(dmntchtForceOpenCheatProcess())) {
                 g.attachedByUs = true;
                 logMessage("Re-attached to game process.");
@@ -556,6 +556,7 @@ void tick() {
         }
 
         if (!findTargetProcess()) {
+            releaseOwnedProcess();
             resetProcessState("Target process unavailable.");
             return;
         }
