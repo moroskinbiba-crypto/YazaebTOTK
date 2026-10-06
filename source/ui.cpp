@@ -310,11 +310,19 @@ public:
     }
 
     bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) && (keysDown & KEY_MINUS)) {
+        // Detached HUD must consume all ordinary input so Tesla cannot treat B,
+        // HOME-adjacent actions or navigation keys as a request to pop/close
+        // this GUI. This mirrors the detachable-overlay pattern used by
+        // pkTeraRaid and Status Monitor-style persistent modes.
+        tsl::homeButtonPressedInGame.store(false, std::memory_order_release);
+
+        if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) &&
+            (keysDown & KEY_MINUS)) {
             tsl::Overlay::get()->close();
             return true;
         }
-        return false;
+
+        return true;
     }
 };
 
