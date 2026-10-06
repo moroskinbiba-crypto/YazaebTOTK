@@ -29,10 +29,10 @@ ifeq ($(strip $(NO_NACP)),)
 endif
 
 ARCH := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
-LIBDIRS := $(LIBNX)
+LIBDIRS := $(PORTLIBS) $(LIBNX)
 
 # Compute include paths before CXXFLAGS is formed so both outer and recursive
-# make invocations compile C++ files with libultra/libtesla headers available.
+# make invocations compile C++ files with all libultrahand dependencies.
 INCLUDE := $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \
            $(foreach dir,$(LIBDIRS),-I$(dir)/include) \
            -I$(TOPDIR)/$(BUILD)
@@ -41,7 +41,7 @@ CFLAGS := -g -O2 -ffunction-sections -w $(ARCH) $(DEFINES) $(INCLUDE) -D__SWITCH
 CXXFLAGS := $(CFLAGS) -fno-exceptions -std=c++20
 ASFLAGS := -g $(ARCH)
 LDFLAGS = -specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LIBS := -lnx
+LIBS := -lcurl -lz -lminizip -lmbedtls -lmbedx509 -lmbedcrypto -lnx
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 

@@ -42,6 +42,20 @@ jobs:
           command -v elf2nro
           test -f "${DEVKITPRO}/libnx/switch_rules"
 
+      - name: Install pinned dependency family from devkitPro repo
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dkp-pacman -S --needed --noconfirm             switch-curl             switch-zlib             switch-minizip             switch-mbedtls
+
+          echo "Installed libultrahand dependency family:"
+          dkp-pacman -Q switch-curl switch-zlib switch-minizip switch-mbedtls
+
+          test -s "${DEVKITPRO}/portlibs/switch/include/curl/curl.h"
+          test -s "${DEVKITPRO}/portlibs/switch/include/zlib.h"
+          test -s "${DEVKITPRO}/portlibs/switch/include/minizip/unzip.h"
+          test -s "${DEVKITPRO}/portlibs/switch/include/mbedtls/ssl.h"
+
       - name: Get pinned libultrahand/libtesla
         shell: bash
         run: |
@@ -59,7 +73,8 @@ jobs:
           test "$(git -C /tmp/libultrahand rev-parse HEAD)" = "1b7a64a4d73489c870f3fb9caa9927e9a2347478"
           test -s libs/libultrahand/ultrahand.mk
           test -s libs/libultrahand/libtesla/include/tesla.hpp
-          grep -R "TESLA" -n libs/libultrahand/libtesla/include/tesla.hpp >/dev/null
+          test -s libs/libultrahand/libultra/include/download_funcs.hpp
+          grep -F '#include <curl/curl.h>' libs/libultrahand/libultra/include/download_funcs.hpp >/dev/null
 
       - name: Verify Stage 1 shape
         shell: bash
