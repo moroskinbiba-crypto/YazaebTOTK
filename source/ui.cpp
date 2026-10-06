@@ -338,6 +338,7 @@ class NearbyGui final : public tsl::Gui {
 
 public:
     tsl::elm::Element* createUI() override {
+        ex::ensureMemory();
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Nearby");
         auto* list = new tsl::elm::List();
         list->addItem(new tsl::elm::ListItem("Nearest database points"));
