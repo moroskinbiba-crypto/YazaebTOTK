@@ -47,9 +47,19 @@ for needle in [
         errors.append(f"Makefile missing: {needle}")
 
 source = (root / 'source/memory.cpp').read_text(encoding='utf-8')
-for needle in ['MAX_CANDIDATES = 4096', 'addReservoirCandidate', 'dmntchtInitialize()', 'dmntchtExit()']:
+for needle in [
+    'MAX_CANDIDATES = 65536',
+    'EXACT_RETRY_TICKS = 30',
+    'clearDiscoveryState()',
+    'dmntchtInitialize()',
+    'dmntchtExit()',
+    'Result ensureMemory()',
+]:
     if needle not in source:
-        errors.append(f"memory.cpp missing: {needle}")
+        errors.append(f'memory.cpp missing: {needle}')
+
+if 'addReservoirCandidate' in source or 'rngState' in source:
+    errors.append('memory.cpp still contains unreliable reservoir scanner state')
 
 main = (root / 'source/main.cpp').read_text(encoding='utf-8')
 if 'initMemory()' in main:
@@ -57,9 +67,16 @@ if 'initMemory()' in main:
 if 'shutdownMemory()' not in main:
     errors.append('main.cpp missing shutdownMemory cleanup')
 
+ui = (root / 'source/ui.cpp').read_text(encoding='utf-8')
+for forbidden in ['::backgroundColor', '::FullMode', '::deactivateOriginalFooter']:
+    if forbidden in ui:
+        errors.append(f'ui.cpp uses unavailable libultrahand API: {forbidden}')
+if 'ex::ensureMemory();' not in ui:
+    errors.append('ui.cpp missing dmnt reconnect on GUI resume')
+
 version = (root / 'include/explorer.hpp').read_text(encoding='utf-8')
-if 'VERSION = "3.4.2"' not in version:
-    errors.append('version mismatch: expected 3.4.2')
+if 'VERSION = "3.4.3"' not in version:
+    errors.append('version mismatch: expected 3.4.3')
 
 points = [
     line for line in (root / 'data/points.csv').read_text(encoding='utf-8').splitlines()
@@ -88,7 +105,7 @@ if errors:
 
 print('VERIFY OK')
 print(' - project layout: OK')
-print(' - current 3.4.2 architecture: OK')
+print(' - current 3.4.3 architecture: OK')
 print(' - NACP/ULTR build hooks: OK')
 print(' - lazy dmnt:cht lifecycle: OK')
 print(' - points.csv: 152 valid rows')

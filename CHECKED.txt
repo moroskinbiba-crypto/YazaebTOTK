@@ -1,4 +1,4 @@
-TOTK Explorer v3.4.2 audit
+TOTK Explorer v3.4.3 audit
 
 Проверено:
 - сборка использует libultrahand;
@@ -8,12 +8,15 @@ TOTK Explorer v3.4.2 audit
 - .ovl начинается с точной копии собранного .nro;
 - CI проверяет 152 строки points.csv и допустимые layer значения;
 - dmnt:cht инициализируется лениво после GUI;
-- exitServices() освобождает dmnt:cht;
-- exact resolver защищён проверкой Title ID и BID;
-- старые actor/profile адреса сбрасываются при смене процесса;
-- NRO собирается отдельно для runtime-диагностики.
+- при закрытии overlay dmnt:cht освобождается, а Calibration/Map HUD переподключают его при повторном входе;
+- initMemory() очищает частично инициализированный dmnt:cht после ошибки attach/process discovery;
+- exact resolver повторяется во время fallback scan и подхватывает Player actor после загрузки resident roster;
+- старые actor/profile/candidate данные сбрасываются при смене PID/base;
+- fallback scanner больше не использует случайный reservoir sampling;
+- Map HUD не использует недоступные в pinned libultrahand глобальные API;
+- verifier синхронизирован с 3.4.3.
 
-Не проверяется CI:
-- реальный runtime на физической Switch;
+Не проверяется физически:
+- реальный runtime на Switch;
 - корректность конкретных координатных offsets вне перечисленных builds;
 - фактическое отображение overlay в конкретной установленной версии Ultrahand/nx-ovlloader.
