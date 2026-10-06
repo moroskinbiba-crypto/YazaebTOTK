@@ -1,4 +1,4 @@
-TOTK Explorer v3.5.0 audit
+TOTK Explorer v3.6.0 audit
 
 Проверено:
 - сборка использует libultrahand;
