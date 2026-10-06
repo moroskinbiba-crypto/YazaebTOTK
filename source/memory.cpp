@@ -228,9 +228,34 @@ bool readMem(u64 address, void* out, std::size_t size) {
         dmntchtReadCheatProcessMemory(address, out, size));
 }
 
+// Debug state for the resolver: last pointer read attempted by readU64().
+u64 g_dbgAddr = 0;
+u64 g_dbgRaw = 0;
+bool g_dbgReadOk = false;
+int g_lastFailStep = -1;
+
 bool readU64(u64 address, u64& out) {
-    return readMem(address, &out, sizeof(out)) &&
-           plausibleAddress(out);
+    g_dbgAddr = address;
+    g_dbgReadOk = readMem(address, &out, sizeof(out));
+    g_dbgRaw = g_dbgReadOk ? out : 0;
+    return g_dbgReadOk && plausibleAddress(out);
+}
+
+// Logs which resolver step failed, once per distinct step, so the log
+// is not flooded by the 30-tick retry loop.
+void logFail(int step, const char* what) {
+    if (step == g_lastFailStep)
+        return;
+    g_lastFailStep = step;
+
+    char msg[200]{};
+    std::snprintf(msg, sizeof(msg),
+                  "Resolver step %d failed: %s | addr=0x%llX read=%s raw=0x%llX",
+                  step, what,
+                  static_cast<unsigned long long>(g_dbgAddr),
+                  g_dbgReadOk ? "ok" : "FAIL",
+                  static_cast<unsigned long long>(g_dbgRaw));
+    logMessage(msg);
 }
 
 bool readVec3(u64 address, Vec3& out) {
@@ -277,54 +302,108 @@ bool resolveExactPlayerActor(u64& actorOut) {
         return false;
 
     u64 sceneModule = 0;
-    if (!readU64(g.mainBase + g_gameProfile->sceneModule, sceneModule))
+    if (!readU64(g.mainBase + g_gameProfile->sceneModule, sceneModule)) {
+        logFail(1, "sceneModule pointer");
         return false;
+    }
 
     u64 scene = 0;
-    if (!readU64(sceneModule + SCENE_FROM_MODULE, scene))
+    if (!readU64(sceneModule + SCENE_FROM_MODULE, scene)) {
+        logFail(2, "scene pointer");
         return false;
+    }
 
     u64 components = 0;
-    if (!readU64(scene + SCENE_COMPONENTS, components))
+    if (!readU64(scene + SCENE_COMPONENTS, components)) {
+        logFail(3, "components pointer");
         return false;
+    }
 
     u64 actorManager = 0;
     if (!readU64(
             components + sizeof(u64) * RESIDENT_COMPONENT_INDEX,
             actorManager)) {
+        logFail(4, "actorManager pointer");
         return false;
     }
 
     u32 count = 0;
-    if (!readMem(actorManager + RESIDENT_COUNT, &count, sizeof(count)))
+    if (!readMem(actorManager + RESIDENT_COUNT, &count, sizeof(count))) {
+        g_dbgAddr = actorManager + RESIDENT_COUNT;
+        g_dbgReadOk = false;
+        g_dbgRaw = 0;
+        logFail(5, "actor count read");
         return false;
+    }
 
-    if (count == 0 || count > 256)
+    if (count == 0 || count > 256) {
+        if (g_lastFailStep != 6) {
+            g_lastFailStep = 6;
+            char m[96]{};
+            std::snprintf(m, sizeof(m),
+                          "Resolver step 6 failed: actor count out of range (%u)",
+                          count);
+            logMessage(m);
+        }
         return false;
+    }
 
     u64 list = 0;
-    if (!readU64(actorManager + RESIDENT_LIST, list))
+    if (!readU64(actorManager + RESIDENT_LIST, list)) {
+        logFail(7, "actor list pointer");
         return false;
+    }
+
+    u32 descFail = 0;
+    u32 actorFail = 0;
+    u32 okNames = 0;
+    char sample[160]{};
 
     for (u32 index = 0; index < count; ++index) {
         const u64 link =
             list + static_cast<u64>(index) * RESIDENT_STRIDE;
 
         u64 descriptor = 0;
-        if (!readU64(link + RESIDENT_DESCRIPTOR, descriptor))
-            continue;
-
-        u64 actor = 0;
-        if (!readU64(
-                descriptor + ACTOR_FROM_DESCRIPTOR,
-                actor)) {
+        if (!readU64(link + RESIDENT_DESCRIPTOR, descriptor)) {
+            ++descFail;
             continue;
         }
 
-        if (actorNameIs(actor, "Player")) {
+        u64 actor = 0;
+        if (!readU64(descriptor + ACTOR_FROM_DESCRIPTOR, actor)) {
+            ++actorFail;
+            continue;
+        }
+
+        u64 namePtr = 0;
+        char nm[64]{};
+        if (!readU64(actor + ACTOR_NAME, namePtr) ||
+            !readRemoteCString(namePtr, nm, sizeof(nm))) {
+            continue;
+        }
+
+        ++okNames;
+        const std::size_t len = std::strlen(sample);
+        if (okNames <= 4 && len + 40 < sizeof(sample)) {
+            std::snprintf(sample + len, sizeof(sample) - len,
+                          "%s%s", len ? "," : "", nm);
+        }
+
+        if (std::strcmp(nm, "Player") == 0) {
+            g_lastFailStep = -1;
             actorOut = actor;
             return true;
         }
+    }
+
+    if (g_lastFailStep != 9) {
+        g_lastFailStep = 9;
+        char m[220]{};
+        std::snprintf(m, sizeof(m),
+                      "Resolver step 9 failed: no Player in %u actors "
+                      "(descFail=%u actorFail=%u namesRead=%u) first=[%s]",
+                      count, descFail, actorFail, okNames, sample);
+        logMessage(m);
     }
 
     return false;
@@ -367,8 +446,13 @@ bool refreshExactPlayer(bool validateActor) {
     }
 
     Vec3 value{};
-    if (!readVec3(actor + ACTOR_POSITION, value))
+    if (!readVec3(actor + ACTOR_POSITION, value)) {
+        if (g_lastFailStep != 10) {
+            g_lastFailStep = 10;
+            logMessage("Resolver step 10 failed: Player actor found, but position read failed or implausible.");
+        }
         return false;
+    }
 
     g.playerActor = actor;
     g.player = displayFromEngine(value);
@@ -409,6 +493,7 @@ Result initMemory() {
     if (R_FAILED(rc)) {
         g.dmntReady = false;
         fail("dmnt:cht is unavailable.");
+        logMessage("dmnt:cht is unavailable.");
         return rc;
     }
 
@@ -417,6 +502,7 @@ Result initMemory() {
     logMessage("dmnt:cht initialized.");
 
     auto cleanupAfterFailure = [&](const char* message, Result result) {
+        logMessage(message);
         releaseOwnedProcess();
         dmntchtExit();
         g_dmntInitialized = false;

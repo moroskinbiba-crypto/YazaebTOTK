@@ -223,6 +223,8 @@ class PersistentHudGui final : public tsl::Gui {
 
 public:
     PersistentHudGui() {
+        ex::logMessage("HUD: ctor begin");
+
         // Match the working Status Monitor Full-mode behavior and ensure the
         // persistent layer is not left at an Ultrahand menu offset.
         tsl::gfx::Renderer::get().setLayerPos(0, 0);
@@ -232,12 +234,18 @@ public:
         // to the game while Tesla continues rendering this GUI.
         tsl::disableHiding = true;
         tsl::hlp::requestForeground(false);
+
+        ex::logMessage("HUD: ctor end");
     }
 
     ~PersistentHudGui() override {
+        // IMPORTANT: this destructor can run during overlay teardown, after the
+        // Tesla renderer (vi) and the hid/pm services were already shut down.
+        // Any ASSERT_FATAL'd call here (setLayerPos, requestForeground) would
+        // raise a fatal error. Only reset a plain flag; the foreground is
+        // restored in handleInput() before close(), while services are alive.
+        ex::logMessage("HUD: dtor");
         tsl::disableHiding = false;
-        tsl::hlp::requestForeground(true);
-        tsl::gfx::Renderer::get().setLayerPos(0, 0);
     }
 
     tsl::elm::Element* createUI() override {
@@ -318,7 +326,17 @@ public:
 
         if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) &&
             (keysDown & KEY_MINUS)) {
+            ex::logMessage("HUD: exit combo");
+
+            // Restore game/applet input focus NOW, while the Tesla layer and the
+            // hid/pm services are still alive. Doing it in the destructor is
+            // unsafe because the destructor may run after services are closed.
+            tsl::disableHiding = false;
+            tsl::hlp::requestForeground(true);
+            ex::logMessage("HUD: foreground restored");
+
             tsl::Overlay::get()->close();
+            ex::logMessage("HUD: close() returned");
             return true;
         }
 

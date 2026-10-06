@@ -15,7 +15,9 @@ public:
     }
 
     void exitServices() override {
+        ex::logMessage("exitServices: begin");
         ex::shutdownMemory();
+        ex::logMessage("exitServices: end");
     }
 
     std::unique_ptr<tsl::Gui> loadInitialGui() override {
