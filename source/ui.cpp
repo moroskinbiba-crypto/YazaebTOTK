@@ -417,6 +417,7 @@ public:
         auto* list = new tsl::elm::List();
 
         list->addItem(new tsl::elm::ListItem("Target"));
+        list->addItem(new tsl::elm::ListItem("Mod Version", ex::VERSION));
         list->addItem(new tsl::elm::ListItem("Title ID", ex::TITLE_TEXT));
         versionItem = new tsl::elm::ListItem("Version");
         buildIdItem = new tsl::elm::ListItem("Build ID");
