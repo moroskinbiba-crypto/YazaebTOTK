@@ -1,4 +1,4 @@
-# TOTK Explorer v3.6.0 — Persistent Map HUD
+# TOTK Explorer v3.6.1 — Persistent Map HUD
 
 Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -23,7 +23,7 @@ Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom
 
 Основной путь координат — exact resolver актёра `Player` для builds 1.4.0-1.4.3: профиль выбирается по BID, затем находится resident actor с именем `Player`, после чего читается его позиция.
 
-Эвристический сканер сохранён как fallback для неподдерживаемых builds и при временном отказе exact resolver. Для поддерживаемых 1.4.0-1.4.3 exact resolver периодически повторяется во время сканирования, поэтому готовый resident actor подхватывается без нового полного прохода.
+Эвристический сканер сохранён как fallback для неподдерживаемых builds и при временном отказе exact resolver. Для поддерживаемых 1.4.0-1.4.3 кнопка Calibration не запускает brute-force scan: она безопасно повторяет exact resolver актёра Player до появления resident actor.
 
 Переход между игровыми процессами обрабатывается безопасно: при смене PID/base старые actor/profile данные сбрасываются.
 

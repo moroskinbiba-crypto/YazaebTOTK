@@ -64,10 +64,10 @@ class CalibrationGui final : public tsl::Gui {
 
         switch (state.stage) {
             case ex::ScanStage::Scanning:
-                instructionItem->setValue("Scanning memory...");
+                instructionItem->setValue("Looking for Player actor...");
                 break;
             case ex::ScanStage::WaitMove:
-                instructionItem->setValue("Walk 5-10 m, reopen overlay if needed, press X");
+                instructionItem->setValue("Walk 5-10 m, then press X");
                 break;
             case ex::ScanStage::WaitJump:
                 instructionItem->setValue("Jump / change elevation, press X");

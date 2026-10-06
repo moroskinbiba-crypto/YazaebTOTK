@@ -51,7 +51,7 @@ constexpr u64 ACTOR_POSITION = 0x2B4;
 
 // Heuristic fallback scanner.
 constexpr u64 SCAN_CHUNK = 0x80000;
-constexpr std::size_t MAX_CANDIDATES = 65536;
+constexpr std::size_t MAX_CANDIDATES = 16384;
 constexpr u32 EXACT_RETRY_TICKS = 30;
 constexpr float MAX_XZ = 12000.0f;
 constexpr float MAX_Y = 6000.0f;
@@ -595,21 +595,31 @@ void startAutoScan() {
     if (R_FAILED(initMemory()))
         return;
 
-    // Exact resolver is preferred for supported 1.4.0-1.4.3 builds.
-    // The fallback scanner remains available for unsupported builds or resolver failures.
-    if (g_exactBuild && refreshExactPlayer(true)) {
-        g.stage = ScanStage::Ready;
-        g.message = "Exact Player actor coordinates active.";
+    // Supported 1.4.0-1.4.3 builds use only the exact Player actor resolver.
+    // Never start a brute-force heap scan from the normal calibration button:
+    // it is unnecessary on known builds and can put excessive pressure on the
+    // overlay process. We simply keep retrying until the resident Player actor
+    // is available.
+    if (g_exactBuild) {
+        clearDiscoveryState();
+        g.error.clear();
+        g.stage = ScanStage::Scanning;
+        g.message = "Looking for exact Player actor...";
+        g.exactPlayer = false;
+        g.playerActor = 0;
+        g.playerValid = false;
+
+        if (refreshExactPlayer(true)) {
+            g.stage = ScanStage::Ready;
+            g.message = "Exact Player actor coordinates active.";
+        }
         return;
     }
 
     clearDiscoveryState();
-    g.candidatesList.reserve(MAX_CANDIDATES);
     g.error.clear();
     g.stage = ScanStage::Scanning;
-    g.message = g_exactBuild
-        ? "Waiting for Player actor; fallback scan running..."
-        : "Scanning game memory (fallback)...";
+    g.message = "Scanning game memory (fallback)...";
     g.exactPlayer = false;
     g.playerActor = 0;
     g.playerValid = false;
@@ -716,17 +726,21 @@ void tick() {
     }
 
     if (g.stage == ScanStage::Scanning) {
-        // On supported builds, do not wait for a full heuristic scan if the
-        // resident actor roster becomes available later during loading.
-        if (g_exactBuild && (g_healthTicks % EXACT_RETRY_TICKS) == 0) {
-            if (refreshExactPlayer(true)) {
-                clearDiscoveryState();
-                g.stage = ScanStage::Ready;
-                g.message = "Exact Player actor coordinates active.";
-                return;
+        // Supported builds never enter the brute-force scanner. Keep retrying
+        // the exact resident Player actor while the game finishes loading.
+        if (g_exactBuild) {
+            if ((g_healthTicks % EXACT_RETRY_TICKS) == 0) {
+                if (refreshExactPlayer(true)) {
+                    clearDiscoveryState();
+                    g.stage = ScanStage::Ready;
+                    g.message = "Exact Player actor coordinates active.";
+                } else {
+                    g.message = "Looking for exact Player actor...";
+                }
             }
+        } else {
+            scanChunk();
         }
-        scanChunk();
     } else if (g.stage == ScanStage::Ready) {
         refreshPlayer();
     }
