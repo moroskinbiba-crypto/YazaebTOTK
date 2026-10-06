@@ -2,10 +2,23 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
 
 #include "explorer.hpp"
+
+namespace ex {
+namespace {
+std::string g_overlayPath{};
+}
+void setOverlayPath(const char* path) {
+    g_overlayPath = path ? path : "";
+}
+const std::string& overlayPath() {
+    return g_overlayPath;
+}
+} // namespace ex
 
 namespace {
 
@@ -147,12 +160,12 @@ public:
     }
 };
 
-class MapHudGui final : public tsl::Gui {
-    static constexpr s32 PANEL_W = 260;
-    static constexpr s32 PANEL_H = 292;
-    static constexpr s32 MAP_SIZE = 210;
-    static constexpr s32 MARGIN = 12;
-    static constexpr float RADIUS = 1500.0f;
+class PersistentHudGui final : public tsl::Gui {
+    static constexpr s32 PANEL_W = 380;
+    static constexpr s32 PANEL_H = 430;
+    static constexpr s32 MAP_SIZE = 280;
+    static constexpr s32 MARGIN = 18;
+    static constexpr float RADIUS = 1800.0f;
 
     static tsl::gfx::Color bgColor() { return {1, 1, 2, 11}; }
     static tsl::gfx::Color panelColor() { return {1, 1, 2, 10}; }
@@ -188,16 +201,21 @@ class MapHudGui final : public tsl::Gui {
 
     static std::string positionText(const ex::Vec3& player) {
         char buffer[96]{};
-        std::snprintf(buffer, sizeof(buffer), "X %.1f  Y %.1f  H %.1f",
+        std::snprintf(buffer, sizeof(buffer), "X %.1f   Y %.1f   H %.1f",
                       static_cast<double>(player.x),
                       static_cast<double>(player.y),
                       static_cast<double>(player.z));
         return buffer;
     }
 
+    static std::string sourceText(const ex::State& state) {
+        return state.exactPlayer ? "Exact Player actor"
+                                 : (state.playerValid ? "Heuristic profile" : "Not detected");
+    }
+
     static std::string nearestText(const ex::Vec3& player, const std::vector<ex::Point>& points) {
         if (points.empty())
-            return "No nearby database points";
+            return "Nearest: none";
 
         const auto& point = points.front();
         const float dx = point.x - player.x;
@@ -212,22 +230,22 @@ class MapHudGui final : public tsl::Gui {
     }
 
     static void drawMap(tsl::gfx::Renderer* renderer, const ex::State& state,
-                 const std::vector<ex::Point>& points, s32 x, s32 y) {
+                        const std::vector<ex::Point>& points, s32 x, s32 y) {
         const s32 centerX = x + MAP_SIZE / 2;
         const s32 centerY = y + MAP_SIZE / 2;
 
-        renderer->drawRoundRect(x, y, MAP_SIZE, MAP_SIZE, 0.22f, 0.22f, 0.22f, 0.22f,
+        renderer->drawRoundRect(x, y, MAP_SIZE, MAP_SIZE, 0.20f, 0.20f, 0.20f, 0.20f,
                                 renderer->a(panelColor()));
         renderer->drawEmptyRect(x, y, MAP_SIZE, MAP_SIZE, renderer->a(gridColor()));
 
-        constexpr s32 rings[] = {30, 61, 92};
+        constexpr s32 rings[] = {45, 90, 135};
         for (const s32 radius : rings)
             renderer->drawCircle(centerX, centerY, radius, false, renderer->a(gridColor()));
 
         renderer->drawLine(centerX, y + 8, centerX, y + MAP_SIZE - 8, renderer->a(gridColor()));
         renderer->drawLine(x + 8, centerY, x + MAP_SIZE - 8, centerY, renderer->a(gridColor()));
 
-        const float pixelsPerMeter = static_cast<float>(MAP_SIZE / 2 - 12) / RADIUS;
+        const float pixelsPerMeter = static_cast<float>(MAP_SIZE / 2 - 16) / RADIUS;
 
         for (const auto& point : points) {
             const float dx = point.x - state.player.x;
@@ -240,73 +258,95 @@ class MapHudGui final : public tsl::Gui {
 
             renderer->drawCircle(px, py, 4, true, renderer->a(markerColor(point)));
 
-            char label[2] = { marker(point), '\0' };
+            char label[2] = {marker(point), '\0'};
             renderer->drawString(label, false, px + 5, py - 6, 11.0f,
                                   renderer->a(mutedColor()));
         }
 
         renderer->drawCircle(centerX, centerY, 6, true, renderer->a(playerColor()));
-        renderer->drawCircle(centerX, centerY, 10, false, renderer->a(playerColor()));
+        renderer->drawCircle(centerX, centerY, 11, false, renderer->a(playerColor()));
     }
 
 public:
+    PersistentHudGui() {
+        // The HUD stays visible while the game receives normal controller input.
+        tsl::hlp::requestForeground(false);
+    }
+
     tsl::elm::Element* createUI() override {
         ex::ensureMemory();
 
-        auto* rootFrame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Map HUD");
+        auto* rootFrame = new tsl::elm::OverlayFrame("", "");
         auto* drawer = new tsl::elm::CustomDrawer(
             [](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
                 const auto& state = ex::state();
 
-                const s32 baseX = tsl::cfg::FramebufferWidth - PANEL_W - 8;
-                const s32 baseY = 8;
-                const s32 mapX = baseX + MARGIN + 12;
-                const s32 mapY = baseY + 74;
+                const s32 baseX = tsl::cfg::FramebufferWidth - PANEL_W - 16;
+                const s32 baseY = 16;
+                const s32 mapX = baseX + MARGIN + 32;
+                const s32 mapY = baseY + 92;
 
-                renderer->drawRoundRect(baseX, baseY, PANEL_W, PANEL_H, 0.18f, 0.18f, 0.18f, 0.18f,
+                renderer->drawRoundRect(baseX, baseY, PANEL_W, PANEL_H, 0.16f, 0.16f, 0.16f, 0.16f,
                                         renderer->a(bgColor()));
 
-                renderer->drawString("TOTK EXPLORER", false, baseX + MARGIN, baseY + 16, 18.0f,
+                renderer->drawString("TOTK EXPLORER", false, baseX + MARGIN, baseY + 20, 20.0f,
                                      renderer->a(textColor()));
+                renderer->drawString(layerText(state.player).c_str(), false,
+                                     baseX + PANEL_W - 145, baseY + 22, 14.0f,
+                                     renderer->a(mutedColor()));
 
                 if (!state.dmntReady || !state.playerValid) {
-                    renderer->drawString(state.dmntReady ? "Waiting for Player coordinates..." : "Game process unavailable",
-                                         false, baseX + MARGIN, baseY + 50, 16.0f,
+                    renderer->drawString(state.dmntReady
+                                             ? "Waiting for Player coordinates..."
+                                             : "Game process unavailable",
+                                         false, baseX + MARGIN, baseY + 58, 16.0f,
                                          renderer->a(mutedColor()));
-                    return;
+                } else {
+                    renderer->drawString(positionText(state.player).c_str(), false,
+                                         baseX + MARGIN, baseY + 54, 14.0f,
+                                         renderer->a(textColor()));
+                    renderer->drawString(sourceText(state).c_str(), false,
+                                         baseX + MARGIN, baseY + 74, 12.0f,
+                                         renderer->a(mutedColor()));
+
+                    const auto points = ex::nearby(RADIUS, 32);
+                    drawMap(renderer, state, points, mapX, mapY);
+
+                    char nearbyTextBuffer[64]{};
+                    std::snprintf(nearbyTextBuffer, sizeof(nearbyTextBuffer),
+                                  "Nearby: %zu points", points.size());
+                    renderer->drawString(nearbyTextBuffer, false,
+                                         baseX + MARGIN, baseY + PANEL_H - 72, 13.0f,
+                                         renderer->a(textColor()));
+
+                    renderer->drawString(nearestText(state.player, points).c_str(),
+                                         false, baseX + MARGIN, baseY + PANEL_H - 48, 12.0f,
+                                         renderer->a(mutedColor()));
                 }
 
-                renderer->drawString(layerText(state.player).c_str(), false,
-                                     baseX + PANEL_W - 130, baseY + 18, 14.0f,
-                                     renderer->a(mutedColor()));
-
-                renderer->drawString(positionText(state.player).c_str(), false,
-                                     baseX + MARGIN, baseY + 48, 13.0f,
-                                     renderer->a(mutedColor()));
-
-                const auto points = ex::nearby(RADIUS, 32);
-                drawMap(renderer, state, points, mapX, mapY);
-
-                renderer->drawString(nearestText(state.player, points).c_str(), false,
-                                     baseX + MARGIN, baseY + PANEL_H - 40, 12.0f,
-                                     renderer->a(mutedColor()));
-                renderer->drawString("B close", false, baseX + PANEL_W - 52,
-                                     baseY + PANEL_H - 40, 11.0f,
+                renderer->drawString("L + R + Minus  close HUD", false,
+                                     baseX + MARGIN, baseY + PANEL_H - 20, 11.0f,
                                      renderer->a(mutedColor()));
             });
+
         rootFrame->setContent(drawer);
         return rootFrame;
     }
 
     void update() override {
+        // Game input is foreground, so poll for the explicit close chord directly.
+        hidScanInput();
+        const u64 keysDown = hidKeysDown(CONTROLLER_P1_AUTO);
+        const u64 keysHeld = hidKeysHeld(CONTROLLER_P1_AUTO);
+        if ((keysHeld & (KEY_L | KEY_R)) == (KEY_L | KEY_R) && (keysDown & KEY_MINUS)) {
+            tsl::Overlay::get()->close();
+            return;
+        }
+
         ex::tick();
     }
 
-    bool handleInput(u64 keysDown, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
-        if (keysDown & KEY_B) {
-            tsl::goBack();
-            return true;
-        }
+    bool handleInput(u64, u64, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
         return false;
     }
 };
@@ -460,10 +500,15 @@ public:
         });
         list->addItem(calibration);
 
-        auto* map = new tsl::elm::ListItem("Map HUD");
+        auto* map = new tsl::elm::ListItem("Map HUD (persistent)");
         map->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
-                tsl::changeTo<MapHudGui>();
+                const auto& path = ex::overlayPath();
+                if (path.empty()) {
+                    return false;
+                }
+                tsl::setNextOverlay(path, "--hud");
+                tsl::Overlay::get()->close();
                 return true;
             }
             return false;
@@ -513,4 +558,8 @@ public:
 
 std::unique_ptr<tsl::Gui> createMainGui() {
     return std::make_unique<MainGui>();
+}
+
+std::unique_ptr<tsl::Gui> createPersistentHudGui() {
+    return std::make_unique<PersistentHudGui>();
 }
