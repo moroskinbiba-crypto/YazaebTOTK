@@ -454,6 +454,11 @@ public:
         list->addItem(actorItem);
         list->addItem(rejectedItem);
 
+        list->addItem(new tsl::elm::ListItem("HUD Controls"));
+        list->addItem(new tsl::elm::ListItem("Enable", "Main menu -> Map HUD (persistent) -> A"));
+        list->addItem(new tsl::elm::ListItem("Disable", "L + R + Minus"));
+        list->addItem(new tsl::elm::ListItem("HUD", "Stays visible after menu closes"));
+
         list->addItem(new tsl::elm::ListItem("Safety"));
         list->addItem(new tsl::elm::ListItem("Progress flags", "Not enabled"));
         list->addItem(new tsl::elm::ListItem("Memory writes", "Disabled"));
