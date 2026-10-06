@@ -106,6 +106,10 @@ if "void resetProcessState(const char* message)" not in memory:
     errors.append("memory.cpp missing stale-process state reset helper")
 if "resetProcessState(" not in memory:
     errors.append("memory.cpp stale-process reset is not used")
+if "void releaseOwnedProcess()" not in memory:
+    errors.append("memory.cpp missing owned dmnt process release helper")
+if "releaseOwnedProcess();" not in memory:
+    errors.append("memory.cpp owned dmnt release helper is not used")
 
 main = (root / "source/main.cpp").read_text(encoding="utf-8")
 if "initMemory()" in main:
