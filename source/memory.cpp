@@ -324,14 +324,23 @@ bool refreshExactPlayer(bool validateActor) {
             }
         }
 
+        // The cached actor is stale or temporarily unreadable. Do not walk the
+        // entire resident roster from the render/update hot path.
         g.playerActor = 0;
         g.playerValid = false;
         g.exactPlayer = false;
+        g.stage = ScanStage::Resolving;
+        g.message = "Player actor lost; resolving again...";
+        return false;
     }
 
     u64 actor = 0;
-    if (!resolveExactPlayerActor(actor))
+    if (!resolveExactPlayerActor(actor)) {
+        g.playerValid = false;
+        g.exactPlayer = false;
+        g.stage = ScanStage::Resolving;
         return false;
+    }
 
     Vec3 value{};
     if (!readVec3(actor + ACTOR_POSITION, value))
@@ -480,12 +489,23 @@ void resetScan() {
 }
 
 void refreshPlayer() {
-    if (g_exactBuild && refreshExactPlayer(false))
-        return;
-
-    if (!g.exactPlayer) {
+    if (!g_exactBuild) {
         g.playerValid = false;
+        g.exactPlayer = false;
         g.playerActor = 0;
+        return;
+    }
+
+    // Once an actor is resolved, the hot path only reads that actor's position.
+    // If it disappears, refreshExactPlayer(false) transitions to Resolving; the
+    // full roster lookup is then performed only by the 30-tick retry path.
+    if (g.playerActor != 0) {
+        refreshExactPlayer(false);
+    } else {
+        g.playerValid = false;
+        g.exactPlayer = false;
+        g.stage = ScanStage::Resolving;
+        g.message = "Looking for exact Player actor...";
     }
 }
 
