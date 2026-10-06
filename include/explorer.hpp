@@ -15,8 +15,6 @@ inline constexpr const char* VERSION = "3.6.2";
 
 struct Vec3 { float x{}, y{}, z{}; };
 struct Point { std::string type, name, layer; float x{}, y{}, z{}; };
-struct Candidate { u64 address{}, heapOffset{}; Vec3 value{}; int score{}; };
-struct Profile { bool valid{}; u64 offset{}; Vec3 value{}; int score{}; };
 
 enum class ScanStage { Idle, Resolving, Ready, Failed };
 
