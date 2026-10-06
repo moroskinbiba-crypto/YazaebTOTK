@@ -2,23 +2,10 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
-#include <cstring>
 #include <memory>
 #include <string>
 
 #include "explorer.hpp"
-
-namespace ex {
-namespace {
-std::string g_overlayPath{};
-}
-void setOverlayPath(const char* path) {
-    g_overlayPath = path ? path : "";
-}
-const std::string& overlayPath() {
-    return g_overlayPath;
-}
-} // namespace ex
 
 namespace {
 
@@ -268,7 +255,9 @@ class PersistentHudGui final : public tsl::Gui {
 
 public:
     PersistentHudGui() {
-        // Keep the HUD visible while normal controller input belongs to the game.
+        // Keep this GUI inside the same Tesla overlay instance, exactly like
+        // Status Monitor's persistent Full mode. Hand the controller focus back
+        // to the game while Tesla continues rendering this GUI.
         tsl::disableHiding = true;
         tsl::hlp::requestForeground(false);
     }
@@ -507,12 +496,10 @@ public:
         auto* map = new tsl::elm::ListItem("Map HUD (persistent)");
         map->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
-                const auto& path = ex::overlayPath();
-                if (path.empty()) {
-                    return false;
-                }
-                tsl::setNextOverlay(path, "--hud");
-                tsl::Overlay::get()->close();
+                // Do NOT close the overlay or launch a second .ovl. Tesla keeps
+                // the current overlay alive while this GUI gives input focus back
+                // to the game, which is the pattern used by Status Monitor Full.
+                tsl::changeTo<PersistentHudGui>();
                 return true;
             }
             return false;
