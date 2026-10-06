@@ -594,8 +594,6 @@ void startAutoScan() {
     g_healthTicks = 0;
     if (R_FAILED(initMemory()))
         return;
-    if (!g.dmntReady && R_FAILED(initMemory()))
-        return;
 
     // Exact resolver is preferred for supported 1.4.0-1.4.3 builds.
     // The fallback scanner remains available for unsupported builds or resolver failures.
