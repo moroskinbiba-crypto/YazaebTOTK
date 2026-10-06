@@ -58,8 +58,9 @@ for needle in [
     if needle not in source:
         errors.append(f'memory.cpp missing: {needle}')
 
-if 'addReservoirCandidate' in source or 'rngState' in source:
-    errors.append('memory.cpp still contains unreliable reservoir scanner state')
+for forbidden in ['SCAN_CHUNK', 'MAX_CANDIDATES', 'candidatesList', 'profilePath()', 'readProfileFile', 'saveProfile', 'loadProfile', 'scanChunk', 'filterMove', 'filterJump']:
+    if forbidden in source:
+        errors.append(f'memory.cpp still contains removed unsafe calibration path: {forbidden}')
 
 main = (root / 'source/main.cpp').read_text(encoding='utf-8')
 if 'initMemory()' in main:
@@ -76,7 +77,7 @@ for forbidden in [
     if forbidden in ui:
         errors.append(f'ui.cpp uses incompatible persistent-HUD API: {forbidden}')
 if 'ex::ensureMemory();' not in ui:
-    errors.append('ui.cpp missing dmnt reconnect on GUI resume')
+    errors.append('ui.cpp missing dmnt initialization on GUI entry')
 if 'tsl::changeTo<PersistentHudGui>()' not in ui:
     errors.append('ui.cpp missing in-process persistent HUD transition')
 if 'tsl::hlp::requestForeground(false)' not in ui:
@@ -85,10 +86,12 @@ if 'L + R + Minus' not in ui:
     errors.append('ui.cpp missing persistent HUD close chord')
 if 'tsl::Overlay::get()->close();' not in ui:
     errors.append('ui.cpp missing explicit HUD close')
+if 'cachedPoints' not in ui:
+    errors.append('ui.cpp missing persistent HUD point cache')
 
 version = (root / 'include/explorer.hpp').read_text(encoding='utf-8')
-if 'VERSION = "3.6.1"' not in version:
-    errors.append('version mismatch: expected 3.6.1')
+if 'VERSION = "3.6.2"' not in version:
+    errors.append('version mismatch: expected 3.6.2')
 
 points = [
     line for line in (root / 'data/points.csv').read_text(encoding='utf-8').splitlines()
@@ -117,7 +120,7 @@ if errors:
 
 print('VERIFY OK')
 print(' - project layout: OK')
-print(' - current 3.6.1 architecture: OK')
+print(' - current 3.6.2 architecture: OK')
 print(' - NACP/ULTR build hooks: OK')
 print(' - lazy dmnt:cht lifecycle: OK')
 print(' - points.csv: 152 valid rows')
