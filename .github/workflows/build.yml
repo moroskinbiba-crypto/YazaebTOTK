@@ -89,6 +89,7 @@ jobs:
         run: |
           set -eux
           python3 tools/verify_repo.py
+          python3 tools/logic_tests.py
           make clean
           make -j2
           test -s TOTK-Explorer-v3.nro
@@ -105,6 +106,7 @@ jobs:
           test "$(stat -c%s TOTK-Explorer-v3.ovl)" -eq "$(( $(stat -c%s TOTK-Explorer-v3.nro) + 4 ))"
           cmp -n "$(stat -c%s TOTK-Explorer-v3.nro)" TOTK-Explorer-v3.nro TOTK-Explorer-v3.ovl
           strings -a TOTK-Explorer-v3.nro | grep -F "TOTK Explorer" >/dev/null
+          strings -a TOTK-Explorer-v3.nro | grep -F "3.6.2" >/dev/null
 
       - name: Package
         run: |
