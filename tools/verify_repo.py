@@ -48,7 +48,7 @@ for needle in [
 
 source = (root / 'source/memory.cpp').read_text(encoding='utf-8')
 for needle in [
-    'MAX_CANDIDATES = 65536',
+    'MAX_CANDIDATES = 16384',
     'EXACT_RETRY_TICKS = 30',
     'clearDiscoveryState()',
     'dmntchtInitialize()',
@@ -87,8 +87,8 @@ if 'tsl::Overlay::get()->close();' not in ui:
     errors.append('ui.cpp missing explicit HUD close')
 
 version = (root / 'include/explorer.hpp').read_text(encoding='utf-8')
-if 'VERSION = "3.6.0"' not in version:
-    errors.append('version mismatch: expected 3.6.0')
+if 'VERSION = "3.6.1"' not in version:
+    errors.append('version mismatch: expected 3.6.1')
 
 points = [
     line for line in (root / 'data/points.csv').read_text(encoding='utf-8').splitlines()
@@ -117,7 +117,7 @@ if errors:
 
 print('VERIFY OK')
 print(' - project layout: OK')
-print(' - current 3.6.0 architecture: OK')
+print(' - current 3.6.1 architecture: OK')
 print(' - NACP/ULTR build hooks: OK')
 print(' - lazy dmnt:cht lifecycle: OK')
 print(' - points.csv: 152 valid rows')
