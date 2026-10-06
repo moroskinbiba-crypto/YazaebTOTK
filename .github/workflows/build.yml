@@ -35,7 +35,7 @@ jobs:
           echo "libnx:"
           dkp-pacman -Q libnx
 
-          test "$(dkp-pacman -Q devkitA64 | awk '{print $2}' | cut -d- -f1)" = "29.2"
+          test "$(dkp-pacman -Q devkitA64 | awk '{print $2}' | cut -d- -f1 | sed 's/^r//')" = "29.2"
           test "$(dkp-pacman -Q libnx | awk '{print $2}' | cut -d- -f1)" = "4.12.0"
 
           command -v make
