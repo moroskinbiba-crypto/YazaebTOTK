@@ -29,12 +29,19 @@ ifeq ($(strip $(NO_NACP)),)
 endif
 
 ARCH := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
-CFLAGS := -g -O2 -ffunction-sections -w $(ARCH) $(DEFINES) -D__SWITCH__
+LIBDIRS := $(LIBNX)
+
+# Compute include paths before CXXFLAGS is formed so both outer and recursive
+# make invocations compile C++ files with libultra/libtesla headers available.
+INCLUDE := $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \
+           $(foreach dir,$(LIBDIRS),-I$(dir)/include) \
+           -I$(TOPDIR)/$(BUILD)
+
+CFLAGS := -g -O2 -ffunction-sections -w $(ARCH) $(DEFINES) $(INCLUDE) -D__SWITCH__
 CXXFLAGS := $(CFLAGS) -fno-exceptions -std=c++20
 ASFLAGS := -g $(ARCH)
 LDFLAGS = -specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 LIBS := -lnx
-LIBDIRS := $(LIBNX)
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 
@@ -42,6 +49,8 @@ export OUTPUT := $(TOPDIR)/$(TARGET)
 export TOPDIR := $(TOPDIR)
 export VPATH := $(foreach dir,$(SOURCES),$(TOPDIR)/$(dir))
 export DEPSDIR := $(TOPDIR)/$(BUILD)
+export INCLUDE
+export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 CFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(TOPDIR)/$(dir)/*.c)))
 CPPFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(TOPDIR)/$(dir)/*.cpp)))
@@ -57,10 +66,6 @@ export OFILES_BIN :=
 export OFILES_SRC := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
 export OFILES := $(OFILES_SRC)
 export HFILES_BIN :=
-export INCLUDE := $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \
-                  $(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-                  -I$(TOPDIR)/$(BUILD)
-export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 .PHONY: all clean
 
@@ -95,7 +100,3 @@ $(OUTPUT).elf: $(OFILES)
 -include $(DEPENDS)
 
 endif
-
-# Both the outer make and the recursive build need the include flags.
-# In the recursive build, INCLUDE is inherited from the exported outer value.
-CFLAGS += $(INCLUDE)
