@@ -1,27 +1,21 @@
-TOTK Explorer v3.6.2
+# TOTK Explorer — Stage 1 installation
 
-После загрузки GitHub Actions artifact распакуйте каталог `sd` в корень microSD.
+Из GitHub Actions artifact `TOTK-Explorer-stage1` скопировать:
 
-Ожидаемая структура:
+`sd:/switch/.overlays/TOTK-Explorer.ovl`
 
-sd:/switch/.overlays/TOTK-Explorer-v3.ovl
-sd:/switch/totk_explorer/TOTK-Explorer-v3.nro
-sd:/switch/totk_explorer/points.csv
+На Stage 1 дополнительных файлов на SD-карте не требуется.
 
-Порядок проверки:
-1. Запустите TOTK 1.4.0, 1.4.1, 1.4.2 или 1.4.3.
-2. Откройте Ultrahand/Tesla.
-3. Выберите TOTK Explorer.
-4. Для отдельного диагностического запуска можно открыть NRO через Homebrew Menu.
-5. Раздел Calibration использует только exact Player resolver; persistent HUD переключается внутри того же overlay и не закрывает его lifecycle.
+Hardware target used for validation:
+- Nintendo Switch firmware 22.5.0
+- Atmosphere 1.11.2
 
-Логи:
-sd:/switch/totk_explorer/log.txt
+Проверить:
+1. открыть Ultrahand/Tesla;
+2. запустить TOTK Explorer;
+3. увидеть заголовок `TOTK Explorer / Stage 1`;
+4. нажать B;
+5. повторить запуск/выход несколько раз;
+6. повторить при запущенной игре.
 
-Overlay read-only: запись в память игры не выполняется.
-
-Choose `Map HUD (persistent)` to switch the current Tesla GUI into persistent HUD mode. The overlay itself stays alive, so the map/statistics panel remains over the game.
-
-HUD contents: live player coordinates, world layer, coordinate source, nearby database points and nearest point.
-
-Close HUD with `L + R + Minus`.
+До успешного hardware-теста Stage 1 следующие runtime-слои не добавляются.
