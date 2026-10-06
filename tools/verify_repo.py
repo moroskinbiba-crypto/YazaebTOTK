@@ -22,6 +22,7 @@ for p in [
     "source/ui.cpp",
     "source/log.cpp",
     "tools/setup_deps.sh",
+    "tools/logic_tests.py",
 ]:
     required(p)
 
