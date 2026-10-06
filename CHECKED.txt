@@ -25,3 +25,5 @@ TOTK Explorer v3.6.2 audit
 - реальный runtime на Switch;
 - корректность конкретных координатных offsets вне перечисленных builds;
 - фактическое отображение overlay в конкретной установленной версии Ultrahand/nx-ovlloader;
+
+CI note: pull-request validation is enabled in the base workflow.
