@@ -23,9 +23,9 @@ Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom
 
 Основной путь координат — exact resolver актёра `Player` для builds 1.4.0-1.4.3: профиль выбирается по BID, затем находится resident actor с именем `Player`, после чего читается его позиция.
 
-Эвристический сканер сохранён как fallback для неподдерживаемых builds и при временном отказе exact resolver. Для поддерживаемых 1.4.0-1.4.3 кнопка Calibration не запускает brute-force scan: она безопасно повторяет exact resolver актёра Player до появления resident actor.
+Для поддерживаемых 1.4.0-1.4.3 используется только exact resolver актёра `Player`. Brute-force heap scan и сохранённый heuristic profile path удалены из runtime ради стабильности.
 
-Переход между игровыми процессами обрабатывается безопасно: при смене PID/base старые actor/profile данные сбрасываются.
+Переход между игровыми процессами обрабатывается безопасно: при смене PID/base старый actor state сбрасывается и resolver запускается заново.
 
 ## Данные карты
 
