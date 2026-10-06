@@ -66,30 +66,29 @@ if 'initMemory()' in main:
     errors.append('main.cpp must not initialize dmnt directly before GUI startup')
 if 'shutdownMemory()' not in main:
     errors.append('main.cpp missing shutdownMemory cleanup')
-if '--hud' not in main:
-    errors.append('main.cpp missing --hud mode dispatch')
-if 'TotkExplorerHudOverlay' not in main:
-    errors.append('main.cpp missing persistent HUD overlay class')
 
 ui = (root / 'source/ui.cpp').read_text(encoding='utf-8')
 for forbidden in [
     '::backgroundColor', '::FullMode', '::deactivateOriginalFooter',
     'tsl::gfx::Color', 'drawRoundRect(', 'hidScanInput(', 'CONTROLLER_P1_AUTO',
+    'setNextOverlay(', '--hud', 'close();\n                return true;\n            }\n            return false;\n        });\n        list->addItem(map);',
 ]:
     if forbidden in ui:
         errors.append(f'ui.cpp uses incompatible persistent-HUD API: {forbidden}')
 if 'ex::ensureMemory();' not in ui:
     errors.append('ui.cpp missing dmnt reconnect on GUI resume')
-if 'tsl::setNextOverlay(path, "--hud")' not in ui:
-    errors.append('ui.cpp missing persistent HUD transition')
+if 'tsl::changeTo<PersistentHudGui>()' not in ui:
+    errors.append('ui.cpp missing in-process persistent HUD transition')
 if 'tsl::hlp::requestForeground(false)' not in ui:
     errors.append('ui.cpp missing game foreground handoff')
 if 'L + R + Minus' not in ui:
     errors.append('ui.cpp missing persistent HUD close chord')
+if 'tsl::Overlay::get()->close();' not in ui:
+    errors.append('ui.cpp missing explicit HUD close')
 
 version = (root / 'include/explorer.hpp').read_text(encoding='utf-8')
-if 'VERSION = "3.5.0"' not in version:
-    errors.append('version mismatch: expected 3.5.0')
+if 'VERSION = "3.6.0"' not in version:
+    errors.append('version mismatch: expected 3.6.0')
 
 points = [
     line for line in (root / 'data/points.csv').read_text(encoding='utf-8').splitlines()
@@ -118,7 +117,7 @@ if errors:
 
 print('VERIFY OK')
 print(' - project layout: OK')
-print(' - current 3.5.0 architecture: OK')
+print(' - current 3.6.0 architecture: OK')
 print(' - NACP/ULTR build hooks: OK')
 print(' - lazy dmnt:cht lifecycle: OK')
 print(' - points.csv: 152 valid rows')

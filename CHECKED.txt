@@ -1,4 +1,4 @@
-TOTK Explorer v3.5.0 audit
+TOTK Explorer v3.6.0 audit
 
 Проверено:
 - сборка использует libultrahand;
@@ -8,18 +8,18 @@ TOTK Explorer v3.5.0 audit
 - .ovl начинается с точной копии собранного .nro;
 - CI проверяет 152 строки points.csv и допустимые layer значения;
 - dmnt:cht инициализируется лениво после GUI;
-- при закрытии overlay dmnt:cht освобождается, а Calibration/Map HUD переподключают его при повторном входе;
+- переход в persistent HUD не закрывает overlay lifecycle и не рвёт dmnt:cht; обычное закрытие overlay всё ещё освобождает сервис;
 - initMemory() очищает частично инициализированный dmnt:cht после ошибки attach/process discovery;
 - exact resolver повторяется во время fallback scan и подхватывает Player actor после загрузки resident roster;
 - старые actor/profile/candidate данные сбрасываются при смене PID/base;
 - fallback scanner больше не использует случайный reservoir sampling;
 - Map HUD не использует недоступные в pinned libultrahand глобальные API;
-- verifier синхронизирован с 3.5.0;
-- persistent HUD запускается вторым режимом `--hud` через `setNextOverlay`;
-- HUD отдаёт input focus игре и обновляется после закрытия обычного меню;
+- verifier синхронизирован с 3.6.0;
+- persistent HUD работает внутри одного overlay через `tsl::changeTo<PersistentHudGui>()`, без `setNextOverlay()` и второго `--hud` entrypoint;
+- HUD отдаёт input focus игре через `tsl::hlp::requestForeground(false)` и продолжает обновляться после скрытия меню;
 - HUD имеет явное закрытие `L + R + Minus`.
 
 Не проверяется физически:
 - реальный runtime на Switch;
 - корректность конкретных координатных offsets вне перечисленных builds;
-- фактическое отображение overlay в конкретной установленной версии Ultrahand/nx-ovlloader.
+- фактическое отображение overlay в конкретной установленной версии Ultrahand/nx-ovlloader;

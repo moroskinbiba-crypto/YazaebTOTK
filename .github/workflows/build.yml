@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - fix/persistent-hud-lifecycle
   workflow_dispatch:
 
 concurrency:
