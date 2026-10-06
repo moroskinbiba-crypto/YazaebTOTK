@@ -51,14 +51,13 @@ constexpr u64 ACTOR_POSITION = 0x2B4;
 
 // Heuristic fallback scanner.
 constexpr u64 SCAN_CHUNK = 0x80000;
-constexpr std::size_t MAX_CANDIDATES = 4096;
+constexpr std::size_t MAX_CANDIDATES = 65536;
+constexpr u32 EXACT_RETRY_TICKS = 30;
 constexpr float MAX_XZ = 12000.0f;
 constexpr float MAX_Y = 6000.0f;
 constexpr float MOVE_EPS = 0.75f;
 constexpr float JUMP_EPS = 2.0f;
 constexpr float MAX_STEP = 1500.0f;
-
-u64 rngState = 0x9E3779B97F4A7C15ULL;
 
 const char* profilePath() {
     return "sdmc:/switch/totk_explorer/profile.txt";
@@ -86,15 +85,6 @@ bool plausible(Vec3 p) {
 
 bool plausibleAddress(u64 address) {
     return address >= 0x1000000ULL && address < 0x8000000000ULL && (address & 0x7ULL) == 0;
-}
-
-u64 nextRandom() {
-    u64 x = rngState;
-    x ^= x << 13;
-    x ^= x >> 7;
-    x ^= x << 17;
-    rngState = x;
-    return x;
 }
 
 void fail(const char* message) {
@@ -131,6 +121,14 @@ void updateBuildInfo() {
     }
     g.buildId = bid;
     g.gameVersion = g_gameProfile ? g_gameProfile->version : "unsupported";
+}
+
+void clearDiscoveryState() {
+    g.candidatesList.clear();
+    g.candidates = 0;
+    g.candidatesSeen = 0;
+    g.cursor = 0;
+    g.scanned = 0;
 }
 
 bool findTargetProcess() {
@@ -175,11 +173,26 @@ bool findTargetProcess() {
         previousGameProfile != g_gameProfile;
 
     if (profileChanged) {
+        const ScanStage previousStage = g.stage;
         g.playerActor = 0;
         g.playerValid = false;
-        // Actor addresses and heuristic heap offsets are process-specific. Never carry
-        // them across process/base changes, otherwise a fallback could read stale memory.
         g.profile = Profile{};
+        // Actor addresses, heuristic offsets and scan cursors are process-specific.
+        // Never carry them across a PID/base change.
+        clearDiscoveryState();
+
+        if (previousPid != 0) {
+            if (previousStage == ScanStage::Scanning ||
+                previousStage == ScanStage::WaitMove ||
+                previousStage == ScanStage::WaitJump) {
+                g.stage = ScanStage::Scanning;
+                g.message = "Game process changed; restarting discovery...";
+            } else if (previousStage == ScanStage::Ready) {
+                g.stage = ScanStage::Idle;
+                g.message = "Game process changed; run Player Coordinates again.";
+            }
+        }
+
         if (g_gameProfile) {
             char message[96]{};
             std::snprintf(message, sizeof(message),
@@ -341,18 +354,14 @@ bool readProfileFile(Profile& profile) {
     return true;
 }
 
-void addReservoirCandidate(u64 address, u64 heapOffset, Vec3 value) {
+void addCandidate(u64 address, u64 heapOffset, Vec3 value) {
     ++g.candidatesSeen;
-    Candidate candidate{address, heapOffset, value, 0};
 
-    if (g.candidatesList.size() < MAX_CANDIDATES) {
-        g.candidatesList.push_back(candidate);
-        return;
-    }
-
-    const u64 slot = nextRandom() % g.candidatesSeen;
-    if (slot < MAX_CANDIDATES)
-        g.candidatesList[static_cast<std::size_t>(slot)] = candidate;
+    // Keep a deterministic bounded set. The exact Player resolver is the primary
+    // path on supported builds; this list is only a fallback for unsupported builds
+    // or temporarily unavailable actor rosters.
+    if (g.candidatesList.size() < MAX_CANDIDATES)
+        g.candidatesList.push_back(Candidate{address, heapOffset, value, 0});
 }
 
 void scanChunk() {
@@ -389,7 +398,7 @@ void scanChunk() {
         if (!plausible(value))
             continue;
 
-        addReservoirCandidate(g.heapBase + g.cursor + i, g.cursor + i, value);
+        addCandidate(g.heapBase + g.cursor + i, g.cursor + i, value);
     }
 
     g.cursor += bytes;
@@ -487,6 +496,10 @@ void selectBest() {
 
 } // namespace
 
+Result ensureMemory() {
+    return initMemory();
+}
+
 State& state() {
     return g;
 }
@@ -497,6 +510,7 @@ Result initMemory() {
 
     Result rc = dmntchtInitialize();
     if (R_FAILED(rc)) {
+        g.dmntReady = false;
         fail("dmnt:cht is unavailable.");
         return rc;
     }
@@ -505,23 +519,36 @@ Result initMemory() {
     g.dmntReady = true;
     logMessage("dmnt:cht initialized.");
 
+    auto cleanupAfterFailure = [&](const char* message, Result result) {
+        if (g.attachedByUs) {
+            dmntchtForceCloseCheatProcess();
+            g.attachedByUs = false;
+        }
+        dmntchtExit();
+        g_dmntInitialized = false;
+        g.dmntReady = false;
+        g.playerValid = false;
+        g.playerActor = 0;
+        fail(message);
+        return result;
+    };
+
     bool hasProcess = false;
-    if (R_SUCCEEDED(dmntchtHasCheatProcess(&hasProcess)) && !hasProcess) {
+    rc = dmntchtHasCheatProcess(&hasProcess);
+    if (R_FAILED(rc)) {
+        return cleanupAfterFailure("Could not query the current game process.", rc);
+    }
+
+    if (!hasProcess) {
         rc = dmntchtForceOpenCheatProcess();
         if (R_FAILED(rc)) {
-            fail("Could not open the current game process.");
-            return rc;
+            return cleanupAfterFailure("Could not open the current game process.", rc);
         }
         g.attachedByUs = true;
     }
 
     if (!findTargetProcess()) {
-        if (g.attachedByUs) {
-            dmntchtForceCloseCheatProcess();
-            g.attachedByUs = false;
-        }
-        fail("TOTK process not detected.");
-        return 1;
+        return cleanupAfterFailure("TOTK process not detected.", 1);
     }
 
     if (g_exactBuild && refreshExactPlayer(true)) {
@@ -565,6 +592,8 @@ void shutdownMemory() {
 
 void startAutoScan() {
     g_healthTicks = 0;
+    if (R_FAILED(initMemory()))
+        return;
     if (!g.dmntReady && R_FAILED(initMemory()))
         return;
 
@@ -576,16 +605,13 @@ void startAutoScan() {
         return;
     }
 
-    g.candidatesList.clear();
+    clearDiscoveryState();
     g.candidatesList.reserve(MAX_CANDIDATES);
-    g.candidates = 0;
-    g.candidatesSeen = 0;
-    g.cursor = 0;
-    g.scanned = 0;
     g.error.clear();
-    rngState = 0x9E3779B97F4A7C15ULL ^ g.heapBase;
     g.stage = ScanStage::Scanning;
-    g.message = "Scanning game memory (heuristic fallback)...";
+    g.message = g_exactBuild
+        ? "Waiting for Player actor; fallback scan running..."
+        : "Scanning game memory (fallback)...";
     g.exactPlayer = false;
     g.playerActor = 0;
     g.playerValid = false;
@@ -593,6 +619,9 @@ void startAutoScan() {
 
 void captureMove() {
     if (g.stage != ScanStage::WaitMove)
+        return;
+
+    if (R_FAILED(initMemory()))
         return;
 
     filterMove();
@@ -609,6 +638,9 @@ void captureJump() {
     if (g.stage != ScanStage::WaitJump)
         return;
 
+    if (R_FAILED(initMemory()))
+        return;
+
     filterJump();
     selectBest();
 }
@@ -618,11 +650,7 @@ void resetScan() {
     g.stage = ScanStage::Idle;
     g.message = "Ready";
     g.error.clear();
-    g.candidatesList.clear();
-    g.candidates = 0;
-    g.candidatesSeen = 0;
-    g.cursor = 0;
-    g.scanned = 0;
+    clearDiscoveryState();
     g.playerValid = false;
     g.exactPlayer = false;
     g.playerActor = 0;
@@ -689,10 +717,21 @@ void tick() {
         }
     }
 
-    if (g.stage == ScanStage::Scanning)
+    if (g.stage == ScanStage::Scanning) {
+        // On supported builds, do not wait for a full heuristic scan if the
+        // resident actor roster becomes available later during loading.
+        if (g_exactBuild && (g_healthTicks % EXACT_RETRY_TICKS) == 0) {
+            if (refreshExactPlayer(true)) {
+                clearDiscoveryState();
+                g.stage = ScanStage::Ready;
+                g.message = "Exact Player actor coordinates active.";
+                return;
+            }
+        }
         scanChunk();
-    else if (g.stage == ScanStage::Ready)
+    } else if (g.stage == ScanStage::Ready) {
         refreshPlayer();
+    }
 }
 
 void saveProfile() {
