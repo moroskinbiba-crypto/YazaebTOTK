@@ -102,6 +102,10 @@ if "if (g.playerActor != 0 && refreshExactPlayer(false))" not in memory:
     errors.append("memory.cpp Start/Refresh path is not idempotent")
 if "g.stage = ScanStage::Resolving;" not in memory:
     errors.append("memory.cpp missing resolver recovery state")
+if "void resetProcessState(const char* message)" not in memory:
+    errors.append("memory.cpp missing stale-process state reset helper")
+if "resetProcessState(" not in memory:
+    errors.append("memory.cpp stale-process reset is not used")
 
 main = (root / "source/main.cpp").read_text(encoding="utf-8")
 if "initMemory()" in main:
