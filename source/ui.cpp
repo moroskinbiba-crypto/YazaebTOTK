@@ -79,7 +79,7 @@ public:
         list->addItem(stageItem);
         list->addItem(instructionItem);
 
-        auto* start = new tsl::elm::ListItem("Start / Restart");
+        auto* start = new tsl::elm::ListItem("Resolve / Refresh");
         start->setClickListener([](u64 keys) {
             if (keys & KEY_A) {
                 ex::startAutoScan();
