@@ -1,4 +1,4 @@
-TOTK Explorer v3.6.0 audit
+TOTK Explorer v3.6.1 audit
 
 Проверено:
 - сборка использует libultrahand;
@@ -10,7 +10,7 @@ TOTK Explorer v3.6.0 audit
 - dmnt:cht инициализируется лениво после GUI;
 - переход в persistent HUD не закрывает overlay lifecycle и не рвёт dmnt:cht; обычное закрытие overlay всё ещё освобождает сервис;
 - initMemory() очищает частично инициализированный dmnt:cht после ошибки attach/process discovery;
-- exact resolver повторяется во время fallback scan и подхватывает Player actor после загрузки resident roster;
+- на поддерживаемых builds Calibration использует только exact Player resolver и не запускает brute-force heap scan;
 - старые actor/profile/candidate данные сбрасываются при смене PID/base;
 - fallback scanner больше не использует случайный reservoir sampling;
 - Map HUD не использует недоступные в pinned libultrahand глобальные API;
