@@ -86,8 +86,8 @@ class CalibrationGui final : public tsl::Gui {
 
 public:
     tsl::elm::Element* createUI() override {
-        // Re-opened overlays lose dmnt:cht in exitServices(); reconnect before
-        // resuming a pending WaitMove/WaitJump calibration step.
+        // On a fresh overlay launch, make sure dmnt:cht is available before showing
+        // the calibration state. While switching GUIs, the same service stays alive.
         ex::ensureMemory();
 
         auto* frame = new tsl::elm::OverlayFrame("TOTK EXPLORER", "Calibration");
