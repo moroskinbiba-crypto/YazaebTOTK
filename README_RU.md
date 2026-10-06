@@ -1,4 +1,4 @@
-# TOTK Explorer v3.6.1 — Persistent Map HUD
+# TOTK Explorer v3.6.2 — Persistent Map HUD
 
 Ultrahand/Tesla-compatible overlay for The Legend of Zelda: Tears of the Kingdom.
 
@@ -78,4 +78,4 @@ sd:/switch/totk_explorer/points.csv
 
 Persistent HUD работает по схеме Status Monitor: `tsl::changeTo<PersistentHudGui>()` + `tsl::hlp::requestForeground(false)`. Главное меню исчезает, а Tesla overlay продолжает жить и карта остаётся поверх игры. Выход из HUD: `L + R + Minus`.
 
-Физическая проверка на Switch обязательна: CI подтверждает сборку и структуру NRO/OVL, но не заменяет runtime-тест на консоли.
+Физическая проверка на Switch обязательна: CI подтверждает сборку и структуру NRO/OVL, а runtime hardening дополнительно проверяет опасные state transitions и запрещает небезопасный heap scanner.
