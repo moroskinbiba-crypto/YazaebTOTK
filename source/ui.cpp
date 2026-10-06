@@ -237,7 +237,7 @@ public:
     ~PersistentHudGui() override {
         tsl::disableHiding = false;
         tsl::hlp::requestForeground(true);
-        tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
+        tsl::gfx::Renderer::get().setLayerPos(0, 0);
     }
 
     tsl::elm::Element* createUI() override {
