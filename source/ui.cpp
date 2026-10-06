@@ -225,7 +225,7 @@ public:
     PersistentHudGui() {
         // Match the working Status Monitor Full-mode behavior and ensure the
         // persistent layer is not left at an Ultrahand menu offset.
-        tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
+        tsl::gfx::Renderer::get().setLayerPos(0, 0);
 
         // Keep this GUI inside the same Tesla overlay instance, exactly like
         // Status Monitor's persistent Full mode. Hand the controller focus back
