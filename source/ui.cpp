@@ -50,14 +50,8 @@ class CalibrationGui final : public tsl::Gui {
         stageItem->setValue(ex::stageText(state.stage));
 
         switch (state.stage) {
-            case ex::ScanStage::Scanning:
-                instructionItem->setValue("Looking for Player actor...");
-                break;
-            case ex::ScanStage::WaitMove:
-                instructionItem->setValue("Walk 5-10 m, then press X");
-                break;
-            case ex::ScanStage::WaitJump:
-                instructionItem->setValue("Jump / change elevation, press X");
+            case ex::ScanStage::Resolving:
+                instructionItem->setValue("Looking for exact Player actor...");
                 break;
             case ex::ScanStage::Ready:
                 instructionItem->setValue("Calibration complete");
@@ -168,8 +162,7 @@ class PersistentHudGui final : public tsl::Gui {
     }
 
     static std::string sourceText(const ex::State& state) {
-        return state.exactPlayer ? "Exact Player actor"
-                                 : (state.playerValid ? "Heuristic profile" : "Not detected");
+        return state.exactPlayer ? "Exact Player actor" : "Not detected";
     }
 
     static std::string nearestText(const ex::Vec3& player, const std::vector<ex::Point>& points) {
@@ -288,7 +281,7 @@ public:
                                          baseX + MARGIN, baseY + PANEL_H - 72, 13.0f,
                                          renderer->a(textColor()));
 
-                    renderer->drawString(nearestText(state.player, points).c_str(),
+                    renderer->drawString(nearestText(state.player, cachedPoints).c_str(),
                                          false, baseX + MARGIN, baseY + PANEL_H - 48, 12.0f,
                                          renderer->a(mutedColor()));
                 }
